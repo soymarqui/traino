@@ -1,34 +1,100 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
+import Card from '@mui/material/Card'
+import CardContent from '@mui/material/CardContent'
+import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
+import HistoryIcon from '@mui/icons-material/History'
+import MenuBookIcon from '@mui/icons-material/MenuBook'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
 
-export default async function DashboardPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+const menuItems = [
+  {
+    label: 'Entrenar',
+    description: 'Iniciar un nuevo entrenamiento',
+    icon: <PlayArrowIcon sx={{ fontSize: 32, color: 'primary.main' }} />,
+    href: '/train',
+  },
+  {
+    label: 'Historial',
+    description: 'Ver entrenamientos pasados',
+    icon: <HistoryIcon sx={{ fontSize: 32, color: 'primary.main' }} />,
+    href: '/history',
+  },
+  {
+    label: 'Ejercicios',
+    description: 'Administrar biblioteca',
+    icon: <MenuBookIcon sx={{ fontSize: 32, color: 'primary.main' }} />,
+    href: '/exercises',
+  },
+  {
+    label: 'Configuración',
+    description: 'Perfil y preferencias',
+    icon: <FitnessCenterIcon sx={{ fontSize: 32, color: 'primary.main' }} />,
+    href: '/settings',
+  },
+]
 
-  if (!user) {
-    redirect('/login')
-  }
+export default function DashboardPage() {
+  const [email, setEmail] = useState('')
+  const supabase = createClient()
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setEmail(user?.email || '')
+    })
+  }, [])
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 2,
-        px: 3,
-      }}
-    >
-      <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
-        Traino
-      </Typography>
-      <Typography variant="body1" color="text.secondary">
-        Bienvenido, {user.email}
-      </Typography>
+    <Box sx={{ minHeight: '100vh', pb: 10 }}>
+      {/* Header */}
+      <Box sx={{ px: 3, pt: 4, pb: 4 }}>
+        <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
+          Traino
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {email}
+        </Typography>
+      </Box>
+
+      {/* Menu */}
+      <Box
+        sx={{
+          px: 3,
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 2,
+        }}
+      >
+        {menuItems.map((item) => (
+          <Link key={item.href} href={item.href} style={{ textDecoration: 'none' }}>
+            <Card
+              sx={{
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  transform: 'scale(1.02)',
+                },
+              }}
+            >
+              <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 2.5 }}>
+                {item.icon}
+                <Typography variant="body1" sx={{ fontWeight: 700 }}>
+                  {item.label}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {item.description}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </Box>
     </Box>
   )
 }
