@@ -41,6 +41,7 @@ export default function EditExercisePage() {
           unit: data.unit ?? 'reps',
           video_url: data.video_url ?? '',
           notes: data.notes ?? '',
+          is_warmup: data.is_warmup ?? false,
         })
       }
     }

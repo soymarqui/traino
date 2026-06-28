@@ -79,7 +79,7 @@ function TrainInner() {
 
     const { data: exs } = await supabase
       .from('routine_exercises')
-      .select('exercise_id, position, rest_seconds, sets:routine_exercise_sets(*)')
+      .select('exercise_id, position, rest_seconds, exercise:exercises(muscle_id), sets:routine_exercise_sets(*)')
       .eq('routine_day_id', dayId)
       .order('position')
 
@@ -121,7 +121,41 @@ function TrainInner() {
       }
     )
 
-    if (rows.length) await supabase.from('sets').insert(rows)
+    // Warm-up automático según los músculos del día (1 serie c/u, primero).
+    const muscleIds = [
+      ...new Set(
+        (exs || [])
+          .map((re: any) => {
+            const ex = Array.isArray(re.exercise) ? re.exercise[0] : re.exercise
+            return ex?.muscle_id as string | undefined
+          })
+          .filter(Boolean)
+      ),
+    ]
+    const exerciseIds = new Set((exs || []).map((re: { exercise_id: string }) => re.exercise_id))
+    const warmupRows: typeof rows = []
+    if (muscleIds.length) {
+      const { data: warmups } = await supabase
+        .from('exercises')
+        .select('id, reps_min')
+        .eq('is_warmup', true)
+        .eq('active', true)
+        .in('muscle_id', muscleIds)
+      ;(warmups || []).forEach((w: { id: string; reps_min: number | null }) => {
+        if (exerciseIds.has(w.id)) return
+        warmupRows.push({
+          workout_id: workout.id,
+          exercise_id: w.id,
+          set_number: 1,
+          reps_target: w.reps_min,
+          rest_seconds: null,
+          completed: false,
+        })
+      })
+    }
+
+    const allRows = [...warmupRows, ...rows]
+    if (allRows.length) await supabase.from('sets').insert(allRows)
     router.push(`/train/${workout.id}`)
   }
 

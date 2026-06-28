@@ -18,6 +18,7 @@ export type Exercise = {
   difficulty: 'beginner' | 'intermediate' | 'advanced' | null
   notes: string | null
   active: boolean
+  is_warmup: boolean
   video_url: string | null
   created_at: string
   muscle?: Muscle

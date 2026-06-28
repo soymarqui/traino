@@ -8,6 +8,8 @@ import MenuItem from '@mui/material/MenuItem'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Alert from '@mui/material/Alert'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import Switch from '@mui/material/Switch'
 import { createClient } from '@/lib/supabase/client'
 import { EQUIPMENT_OPTIONS } from '@/lib/equipment'
 import { Muscle } from '@/types/database'
@@ -20,6 +22,7 @@ export type ExerciseFormValues = {
   unit: 'reps' | 'time'
   video_url: string
   notes: string
+  is_warmup: boolean
 }
 
 const EMPTY: ExerciseFormValues = {
@@ -29,6 +32,7 @@ const EMPTY: ExerciseFormValues = {
   unit: 'reps',
   video_url: '',
   notes: '',
+  is_warmup: false,
 }
 
 export default function ExerciseForm({
@@ -82,6 +86,7 @@ export default function ExerciseForm({
       unit: form.unit,
       video_url: form.video_url || null,
       notes: form.notes || null,
+      is_warmup: form.is_warmup,
     }
 
     let savedId = exerciseId
@@ -187,6 +192,13 @@ export default function ExerciseForm({
         <MenuItem value="reps">Repeticiones</MenuItem>
         <MenuItem value="time">Tiempo</MenuItem>
       </TextField>
+
+      <FormControlLabel
+        control={
+          <Switch checked={form.is_warmup} onChange={(e) => set('is_warmup', e.target.checked)} />
+        }
+        label="🔥 Ejercicio de warm-up"
+      />
 
       <TextField
         label="Link del video (YouTube)"

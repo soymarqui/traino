@@ -51,6 +51,7 @@ type ExerciseWithSets = {
   reps_min: number
   reps_max: number
   rest_seconds: number
+  is_warmup: boolean
   sets: SetRow[]
 }
 
@@ -92,7 +93,7 @@ export default function WorkoutPage() {
 
     const { data: sets } = await supabase
       .from('sets')
-      .select('*, exercise:exercises(id, name, reps_min, reps_max, rest_seconds)')
+      .select('*, exercise:exercises(id, name, reps_min, reps_max, rest_seconds, is_warmup)')
       .eq('workout_id', workoutId)
       .order('set_number')
 
@@ -116,6 +117,8 @@ export default function WorkoutPage() {
       })
     })
     const list = Array.from(map.values())
+    // Warm-ups primero.
+    list.sort((a, b) => (b.is_warmup ? 1 : 0) - (a.is_warmup ? 1 : 0))
     setExercises(list)
     setLoading(false)
 
@@ -359,12 +362,27 @@ export default function WorkoutPage() {
       <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
         {loading && <Typography color="text.secondary">Cargando...</Typography>}
 
-        {exercises.map((exercise) => (
-          <Card key={exercise.id}>
+        {exercises.map((exercise, idx) => {
+          const prev = exercises[idx - 1]
+          const showWarmupHeader = exercise.is_warmup && idx === 0
+          const showMainHeader = !exercise.is_warmup && (idx === 0 || prev?.is_warmup)
+          return (
+          <Box key={exercise.id} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {showWarmupHeader && (
+            <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main', textTransform: 'uppercase', letterSpacing: 1 }}>
+              🔥 Warm-Up
+            </Typography>
+          )}
+          {showMainHeader && exercises.some((e) => e.is_warmup) && (
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
+              Ejercicios
+            </Typography>
+          )}
+          <Card sx={exercise.is_warmup ? { borderColor: 'primary.main' } : undefined}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                 <Typography variant="body1" sx={{ fontWeight: 700, flex: 1 }}>
-                  {exercise.name}
+                  {exercise.is_warmup && '🔥 '}{exercise.name}
                 </Typography>
                 {suggestions[exercise.id] != null && (
                   <Chip
@@ -421,7 +439,9 @@ export default function WorkoutPage() {
               </Button>
             </CardContent>
           </Card>
-        ))}
+          </Box>
+          )
+        })}
       </Box>
 
       {!loading && (
