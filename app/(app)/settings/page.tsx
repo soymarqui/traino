@@ -18,11 +18,11 @@ import { isAdmin } from '@/lib/admin'
 import { useRouter } from 'next/navigation'
 
 const GOALS = [
-  { value: 'fuerza', label: 'Fuerza' },
-  { value: 'hipertrofia', label: 'Hipertrofia' },
-  { value: 'resistencia', label: 'Resistencia' },
-  { value: 'perdida_grasa', label: 'Pérdida de grasa' },
-  { value: 'salud', label: 'Salud general' },
+  { value: 'bajar_peso', label: 'Bajar de peso' },
+  { value: 'ganar_musculo', label: 'Ganar masa muscular' },
+  { value: 'mantenerse', label: 'Mantenerse' },
+  { value: 'rendimiento', label: 'Mejorar rendimiento deportivo' },
+  { value: 'otro', label: 'Otro' },
 ]
 
 export default function SettingsPage() {
@@ -44,6 +44,8 @@ export default function SettingsPage() {
     height: '',
     weight: '',
     goal: '',
+    observations: '',
+    bio: '',
   })
   const router = useRouter()
   const supabase = createClient()
@@ -58,13 +60,15 @@ export default function SettingsPage() {
       setAvatar(m.avatar_url ?? '')
 
       let handle = ''
+      let bio = ''
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('handle')
+          .select('handle, bio')
           .eq('id', user.id)
           .maybeSingle()
         handle = profile?.handle ?? ''
+        bio = profile?.bio ?? ''
       }
 
       setForm({
@@ -74,6 +78,8 @@ export default function SettingsPage() {
         height: m.height_cm != null ? String(m.height_cm) : '',
         weight: m.weight_kg != null ? String(m.weight_kg) : '',
         goal: m.goal ?? '',
+        observations: m.observations ?? '',
+        bio,
       })
       setLoading(false)
     }
@@ -136,12 +142,18 @@ export default function SettingsPage() {
         height_cm: num(form.height),
         weight_kg: num(form.weight),
         goal: form.goal || null,
+        observations: form.observations.trim() || null,
       },
     })
 
     await supabase
       .from('profiles')
-      .update({ handle: cleanHandle, display_name: form.name.trim(), avatar_url: avatar || null })
+      .update({
+        handle: cleanHandle,
+        display_name: form.name.trim(),
+        avatar_url: avatar || null,
+        bio: form.bio.trim() || null,
+      })
       .eq('id', userId ?? '')
 
     setSaving(false)
@@ -280,6 +292,28 @@ export default function SettingsPage() {
               </MenuItem>
             ))}
           </TextField>
+
+          <TextField
+            label="Observaciones personales"
+            value={form.observations}
+            onChange={(e) => set('observations', e.target.value)}
+            fullWidth
+            multiline
+            rows={2}
+            placeholder="Lesiones, restricciones, aclaraciones (ej: hombro derecho operado)"
+            helperText="Privado. Lo usamos para avisarte si un ejercicio puede no ser apto para vos."
+          />
+
+          <TextField
+            label="Bio"
+            value={form.bio}
+            onChange={(e) => set('bio', e.target.value)}
+            fullWidth
+            multiline
+            rows={2}
+            placeholder="Contá algo sobre vos"
+            helperText="Pública (para la sección de amigos)."
+          />
 
           <Button variant="contained" onClick={handleSave} disabled={saving || loading}>
             {saving ? 'Guardando...' : 'Guardar perfil'}
