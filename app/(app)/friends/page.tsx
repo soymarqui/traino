@@ -65,7 +65,7 @@ export default function FriendsPage() {
     <Box sx={{ minHeight: '100vh', pb: 12 }}>
       <Box sx={{ px: 3, pt: 4, pb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Amigos
+          Comunidad
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Buscá un usuario por su @ y mirá sus rutinas públicas

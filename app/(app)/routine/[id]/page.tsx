@@ -162,7 +162,7 @@ export default function RoutineDetailPage() {
                   ? 'Solo la ves vos.'
                   : routine.visibility === 'unlisted'
                   ? 'Accesible con el link, no aparece en tu perfil.'
-                  : 'Visible en tu perfil (para amigos).'
+                  : 'Visible en tu perfil (para la comunidad).'
               }
             >
               <MenuItem value="private">🔒 Privada</MenuItem>

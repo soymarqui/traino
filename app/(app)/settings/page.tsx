@@ -316,7 +316,7 @@ export default function SettingsPage() {
             multiline
             rows={2}
             placeholder="Contá algo sobre vos"
-            helperText="Pública (para la sección de amigos)."
+            helperText="Pública (para la sección de comunidad)."
           />
 
           <Button variant="contained" onClick={handleSave} disabled={saving || loading}>
