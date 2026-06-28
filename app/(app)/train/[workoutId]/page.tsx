@@ -11,6 +11,8 @@ import Slider from '@mui/material/Slider'
 import TextField from '@mui/material/TextField'
 import Checkbox from '@mui/material/Checkbox'
 import FormControlLabel from '@mui/material/FormControlLabel'
+import LinearProgress from '@mui/material/LinearProgress'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
@@ -76,6 +78,7 @@ export default function WorkoutPage() {
   const [shareOpen, setShareOpen] = useState(false)
   const [shareSel, setShareSel] = useState<string[]>([])
   const [shared, setShared] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [marking, setMarking] = useState<{ set: SetRow; exName: string } | null>(null)
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
@@ -155,6 +158,9 @@ export default function WorkoutPage() {
     // Warm-ups primero.
     list.sort((a, b) => (b.is_warmup ? 1 : 0) - (a.is_warmup ? 1 : 0))
     setExercises(list)
+    // Expandir el primer ejercicio con series pendientes.
+    const firstIncomplete = list.find((e) => e.sets.some((s) => !s.completed))
+    setExpandedId(firstIncomplete?.id ?? list[0]?.id ?? null)
     setLoading(false)
 
     // Historial para sugerir progresión (sesiones anteriores).
@@ -490,21 +496,41 @@ export default function WorkoutPage() {
               Ejercicios
             </Typography>
           )}
+          {(() => {
+            const total = exercise.sets.length
+            const done = exercise.sets.filter((s) => s.completed).length
+            const pct = total ? (done / total) * 100 : 0
+            const expanded = expandedId === exercise.id
+            return (
           <Card sx={exercise.is_warmup ? { borderColor: 'primary.main' } : undefined}>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+              {/* Header (colapsable) */}
+              <Box
+                onClick={() => setExpandedId(expanded ? null : exercise.id)}
+                sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}
+              >
                 <Typography variant="body1" sx={{ fontWeight: 700, flex: 1 }}>
                   {exercise.is_warmup && '🔥 '}{exercise.name}
                 </Typography>
                 {suggestions[exercise.id] != null && (
-                  <Chip
-                    label={`Probá ${suggestions[exercise.id]} kg 💪`}
-                    size="small"
-                    color="primary"
-                  />
+                  <Chip label={`Probá ${suggestions[exercise.id]} kg 💪`} size="small" color="primary" />
                 )}
+                <Typography variant="caption" color="text.secondary">
+                  {done}/{total}
+                </Typography>
+                <ExpandMoreIcon
+                  sx={{ color: 'text.secondary', transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                />
               </Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              <LinearProgress
+                variant="determinate"
+                value={pct}
+                sx={{ mt: 1, borderRadius: 2, height: 6 }}
+              />
+
+              {!expanded ? null : (
+              <>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2, mb: 1 }}>
                 {exercise.reps_min}–{exercise.reps_max} reps ·{' '}
                 {(exercise.sets.find((s) => s.rest_seconds != null)?.rest_seconds ?? exercise.rest_seconds)}s descanso
               </Typography>
@@ -549,8 +575,12 @@ export default function WorkoutPage() {
               <Button size="small" onClick={() => addSet(exercise)} sx={{ mt: 1 }}>
                 + Agregar serie
               </Button>
+              </>
+              )}
             </CardContent>
           </Card>
+            )
+          })()}
           </Box>
           )
         })}
