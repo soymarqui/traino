@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
@@ -11,12 +11,13 @@ import MenuItem from '@mui/material/MenuItem'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
+import Alert from '@mui/material/Alert'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Switch from '@mui/material/Switch'
 import CloseIcon from '@mui/icons-material/Close'
 import AddIcon from '@mui/icons-material/Add'
 import { createClient } from '@/lib/supabase/client'
-import { Equipment, Exercise } from '@/types/database'
+import { Equipment, Exercise, Routine } from '@/types/database'
 
 const EQUIPMENT_OPTIONS: { value: Equipment; label: string }[] = [
   { value: 'barra', label: 'Con barra' },
@@ -27,12 +28,7 @@ const EQUIPMENT_OPTIONS: { value: Equipment; label: string }[] = [
 ]
 
 type SetMode = 'reps' | 'time' | 'failure'
-
-type SetDraft = {
-  mode: SetMode
-  value: string // reps o segundos según mode
-  weight: string
-}
+type SetDraft = { mode: SetMode; value: string; weight: string }
 
 function emptySet(exercise: Exercise): SetDraft {
   return { mode: 'reps', value: String(exercise.reps_min ?? 10), weight: '' }
@@ -50,6 +46,8 @@ export default function AddToRoutineDialog({
   onAdded: () => void
 }) {
   const supabase = createClient()
+  const [routines, setRoutines] = useState<Routine[]>([])
+  const [routineId, setRoutineId] = useState('')
   const [saving, setSaving] = useState(false)
   const [equipment, setEquipment] = useState<Equipment | ''>('')
   const [unilateral, setUnilateral] = useState(false)
@@ -58,32 +56,38 @@ export default function AddToRoutineDialog({
     Array.from({ length: exercise.suggested_sets || 3 }, () => emptySet(exercise))
   )
 
-  const updateSet = (i: number, patch: Partial<SetDraft>) => {
-    setSets((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)))
-  }
+  useEffect(() => {
+    if (!open) return
+    supabase
+      .from('routines')
+      .select('*')
+      .order('created_at')
+      .then(({ data }) => {
+        const list = (data as Routine[]) || []
+        setRoutines(list)
+        setRoutineId((prev) => prev || list[0]?.id || '')
+      })
+  }, [open])
 
+  const updateSet = (i: number, patch: Partial<SetDraft>) =>
+    setSets((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)))
   const addSet = () => setSets((prev) => [...prev, emptySet(exercise)])
   const removeSet = (i: number) =>
     setSets((prev) => prev.filter((_, idx) => idx !== i))
 
   const handleSave = async () => {
+    if (!routineId) return
     setSaving(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setSaving(false)
-      return
-    }
 
-    // Posición = al final de la rutina actual.
     const { count } = await supabase
-      .from('user_exercises')
+      .from('routine_exercises')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
+      .eq('routine_id', routineId)
 
-    const { data: ue, error } = await supabase
-      .from('user_exercises')
+    const { data: re, error } = await supabase
+      .from('routine_exercises')
       .insert({
-        user_id: user.id,
+        routine_id: routineId,
         exercise_id: exercise.id,
         rest_seconds: rest ? parseInt(rest) : null,
         equipment: equipment || null,
@@ -93,21 +97,20 @@ export default function AddToRoutineDialog({
       .select()
       .single()
 
-    if (error || !ue) {
+    if (error || !re) {
       setSaving(false)
       return
     }
 
     const rows = sets.map((s, i) => ({
-      user_exercise_id: ue.id,
+      routine_exercise_id: re.id,
       set_number: i + 1,
       reps: s.mode === 'reps' && s.value ? parseInt(s.value) : null,
       duration_seconds: s.mode === 'time' && s.value ? parseInt(s.value) : null,
       to_failure: s.mode === 'failure',
       weight: s.weight ? parseFloat(s.weight) : null,
     }))
-
-    await supabase.from('user_exercise_sets').insert(rows)
+    await supabase.from('routine_exercise_sets').insert(rows)
 
     setSaving(false)
     onAdded()
@@ -117,13 +120,33 @@ export default function AddToRoutineDialog({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ fontWeight: 700 }}>
-        Agregar a entrenamiento
+        Agregar a rutina
         <Typography variant="body2" color="text.secondary">
           {exercise.name}
         </Typography>
       </DialogTitle>
 
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
+        {routines.length === 0 ? (
+          <Alert severity="info">
+            No tenés rutinas todavía. Creá una en la sección Rutina y volvé.
+          </Alert>
+        ) : (
+          <TextField
+            label="Rutina"
+            select
+            value={routineId}
+            onChange={(e) => setRoutineId(e.target.value)}
+            fullWidth
+          >
+            {routines.map((r) => (
+              <MenuItem key={r.id} value={r.id}>
+                {r.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
+
         <TextField
           label="Equipo"
           select
@@ -141,10 +164,7 @@ export default function AddToRoutineDialog({
 
         <FormControlLabel
           control={
-            <Switch
-              checked={unilateral}
-              onChange={(e) => setUnilateral(e.target.checked)}
-            />
+            <Switch checked={unilateral} onChange={(e) => setUnilateral(e.target.checked)} />
           }
           label="Unilateral (por brazo/pierna)"
         />
@@ -209,11 +229,7 @@ export default function AddToRoutineDialog({
                   sx={{ width: 80 }}
                 />
 
-                <IconButton
-                  size="small"
-                  onClick={() => removeSet(i)}
-                  disabled={sets.length === 1}
-                >
+                <IconButton size="small" onClick={() => removeSet(i)} disabled={sets.length === 1}>
                   <CloseIcon fontSize="small" />
                 </IconButton>
               </Box>
@@ -230,7 +246,11 @@ export default function AddToRoutineDialog({
         <Button onClick={onClose} color="inherit">
           Cancelar
         </Button>
-        <Button variant="contained" onClick={handleSave} disabled={saving}>
+        <Button
+          variant="contained"
+          onClick={handleSave}
+          disabled={saving || !routineId}
+        >
           {saving ? 'Guardando...' : 'Agregar'}
         </Button>
       </DialogActions>

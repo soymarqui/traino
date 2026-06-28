@@ -142,7 +142,7 @@ export default function ExerciseDetailPage() {
               startIcon={<AddIcon />}
               onClick={() => setDialogOpen(true)}
             >
-              Agregar a entrenamiento
+              Agregar a rutina
             </Button>
 
             {/* Acciones de admin */}
@@ -258,7 +258,7 @@ export default function ExerciseDetailPage() {
         open={added}
         autoHideDuration={3000}
         onClose={() => setAdded(false)}
-        message="Agregado a tu entrenamiento"
+        message="Agregado a tu rutina"
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         sx={{ mb: 8 }}
       />

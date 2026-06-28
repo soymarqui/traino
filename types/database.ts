@@ -74,6 +74,39 @@ export type UserExercise = {
   sets?: UserExerciseSet[]
 }
 
+export type Routine = {
+  id: string
+  owner_id: string
+  name: string
+  is_public: boolean
+  created_at: string
+  exercises?: RoutineExercise[]
+}
+
+export type RoutineExercise = {
+  id: string
+  routine_id: string
+  exercise_id: string
+  rest_seconds: number | null
+  equipment: Equipment | null
+  unilateral: boolean
+  notes: string | null
+  position: number
+  exercise?: Exercise
+  sets?: RoutineExerciseSet[]
+}
+
+export type RoutineExerciseSet = {
+  id: string
+  routine_exercise_id: string
+  set_number: number
+  reps: number | null
+  reps_max: number | null
+  duration_seconds: number | null
+  to_failure: boolean
+  weight: number | null
+}
+
 export type Workout = {
   id: string
   user_id: string
