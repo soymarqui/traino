@@ -10,6 +10,7 @@ import HistoryIcon from '@mui/icons-material/History'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import { createClient } from '@/lib/supabase/client'
+import { displayName } from '@/lib/user'
 import Link from 'next/link'
 
 const menuItems = [
@@ -41,11 +42,13 @@ const menuItems = [
 
 export default function DashboardPage() {
   const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
   const supabase = createClient()
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setEmail(user?.email || '')
+      setName(displayName(user))
     })
   }, [])
 
@@ -54,7 +57,7 @@ export default function DashboardPage() {
       {/* Header */}
       <Box sx={{ px: 3, pt: 4, pb: 4 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Hola 👋
+          {name ? `Hola, ${name} 👋` : 'Hola 👋'}
         </Typography>
         <Typography variant="body2" color="text.secondary">
           {email}

@@ -7,6 +7,8 @@ import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
+import TextField from '@mui/material/TextField'
+import Snackbar from '@mui/material/Snackbar'
 import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import LogoutIcon from '@mui/icons-material/Logout'
 import { createClient } from '@/lib/supabase/client'
@@ -17,6 +19,9 @@ export default function SettingsPage() {
   const [email, setEmail] = useState('')
   const [admin, setAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [name, setName] = useState('')
+  const [savingName, setSavingName] = useState(false)
+  const [savedName, setSavedName] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
   const router = useRouter()
   const supabase = createClient()
@@ -25,9 +30,17 @@ export default function SettingsPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setEmail(user?.email || '')
       setAdmin(isAdmin(user?.email))
+      setName((user?.user_metadata?.full_name as string | undefined) || '')
       setLoading(false)
     })
   }, [])
+
+  const handleSaveName = async () => {
+    setSavingName(true)
+    await supabase.auth.updateUser({ data: { full_name: name.trim() } })
+    setSavingName(false)
+    setSavedName(true)
+  }
 
   const handleSignOut = async () => {
     setSigningOut(true)
@@ -40,7 +53,7 @@ export default function SettingsPage() {
       {/* Header */}
       <Box sx={{ px: 3, pt: 4, pb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Perfil
+          Configuración
         </Typography>
       </Box>
 
@@ -62,6 +75,24 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Nombre */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <TextField
+            label="Nombre"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            fullWidth
+            placeholder="¿Cómo querés que te llamemos?"
+          />
+          <Button
+            variant="contained"
+            onClick={handleSaveName}
+            disabled={savingName || loading}
+          >
+            {savingName ? 'Guardando...' : 'Guardar nombre'}
+          </Button>
+        </Box>
+
         <Button
           variant="outlined"
           color="inherit"
@@ -74,6 +105,15 @@ export default function SettingsPage() {
           {signingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
         </Button>
       </Box>
+
+      <Snackbar
+        open={savedName}
+        autoHideDuration={2500}
+        onClose={() => setSavedName(false)}
+        message="Nombre actualizado"
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{ mb: 8 }}
+      />
     </Box>
   )
 }

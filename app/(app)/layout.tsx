@@ -22,23 +22,26 @@ import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
 import ChecklistIcon from '@mui/icons-material/Checklist'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
 import HistoryIcon from '@mui/icons-material/History'
-import PersonIcon from '@mui/icons-material/Person'
+import SettingsIcon from '@mui/icons-material/Settings'
 import GroupIcon from '@mui/icons-material/Group'
 import { createClient } from '@/lib/supabase/client'
+import { initialOf } from '@/lib/user'
 import { usePathname, useRouter } from 'next/navigation'
+import type { User } from '@supabase/supabase-js'
 
 // Acciones primarias, siempre visibles abajo.
 const BOTTOM_TABS = [
   { label: 'Inicio', value: '/dashboard', icon: <HomeIcon /> },
   { label: 'Entrenar', value: '/train', icon: <FitnessCenterIcon /> },
   { label: 'Rutina', value: '/routine', icon: <ChecklistIcon /> },
+  { label: 'Amigos', value: '/friends', icon: <GroupIcon /> },
 ]
 
 // Secciones secundarias, en el menú lateral (burger).
 const DRAWER_ITEMS = [
   { label: 'Ejercicios', value: '/exercises', icon: <MenuBookIcon /> },
   { label: 'Historial', value: '/history', icon: <HistoryIcon /> },
-  { label: 'Perfil', value: '/settings', icon: <PersonIcon /> },
+  { label: 'Configuración', value: '/settings', icon: <SettingsIcon /> },
 ]
 
 export default function AppLayout({
@@ -49,12 +52,12 @@ export default function AppLayout({
   const pathname = usePathname()
   const router = useRouter()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [email, setEmail] = useState('')
+  const [user, setUser] = useState<User | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
-      setEmail(user?.email || '')
+      setUser(user)
     })
   }, [])
 
@@ -68,7 +71,7 @@ export default function AppLayout({
       .filter((v) => pathname === v || pathname.startsWith(v + '/'))
       .sort((a, b) => b.length - a.length)[0] ?? false
 
-  const initial = email ? email[0].toUpperCase() : '?'
+  const initial = initialOf(user)
 
   return (
     <Box sx={{ minHeight: '100vh' }}>
@@ -117,13 +120,13 @@ export default function AppLayout({
           <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main', px: 2 }}>
             Traino
           </Typography>
-          {email && (
+          {user?.email && (
             <Typography
               variant="body2"
               color="text.secondary"
               sx={{ px: 2, mb: 1, wordBreak: 'break-all' }}
             >
-              {email}
+              {user.email}
             </Typography>
           )}
           <Divider />
@@ -138,12 +141,6 @@ export default function AppLayout({
                 <ListItemText primary={item.label} />
               </ListItemButton>
             ))}
-            <ListItemButton disabled>
-              <ListItemIcon sx={{ color: 'text.secondary' }}>
-                <GroupIcon />
-              </ListItemIcon>
-              <ListItemText primary="Amigos" secondary="Próximamente" />
-            </ListItemButton>
           </List>
         </Box>
       </Drawer>
