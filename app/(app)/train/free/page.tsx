@@ -12,6 +12,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { createClient } from '@/lib/supabase/client'
 import { equipmentLabel } from '@/lib/equipment'
+import { muscleLabel } from '@/lib/muscles'
 import { Exercise, Muscle } from '@/types/database'
 import { useRouter } from 'next/navigation'
 
@@ -132,7 +133,7 @@ export default function FreeTrainPage() {
         {muscles.map((m) => (
           <Chip
             key={m.id}
-            label={m.name}
+            label={muscleLabel(m.slug, m.name)}
             onClick={() => setSelectedMuscle(m.id)}
             color={selectedMuscle === m.id ? 'primary' : 'default'}
             sx={{ flexShrink: 0 }}
@@ -181,7 +182,7 @@ export default function FreeTrainPage() {
                     {ex.name}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {ex.muscle?.name}
+                    {muscleLabel(ex.muscle?.slug, ex.muscle?.name ?? '')}
                   </Typography>
                   <Box sx={{ flex: 1 }} />
                   <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>

@@ -12,6 +12,7 @@ import AddIcon from '@mui/icons-material/Add'
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
 import { createClient } from '@/lib/supabase/client'
 import { isAdmin } from '@/lib/admin'
+import { muscleLabel } from '@/lib/muscles'
 import { Exercise, Muscle } from '@/types/database'
 
 export default function ExercisesPage() {
@@ -110,7 +111,7 @@ export default function ExercisesPage() {
         {muscles.map((m) => (
           <Chip
             key={m.id}
-            label={m.name}
+            label={muscleLabel(m.slug, m.name)}
             onClick={() => setSelectedMuscle(m.id)}
             color={selectedMuscle === m.id ? 'primary' : 'default'}
             sx={{ flexShrink: 0 }}
@@ -154,7 +155,7 @@ export default function ExercisesPage() {
                   {exercise.name}
                 </Typography>
                 {exercise.muscle?.name && (
-                  <Chip label={exercise.muscle.name} size="small" />
+                  <Chip label={muscleLabel(exercise.muscle.slug, exercise.muscle.name)} size="small" />
                 )}
               </CardContent>
             </CardActionArea>

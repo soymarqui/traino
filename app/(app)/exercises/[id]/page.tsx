@@ -17,6 +17,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import { createClient } from '@/lib/supabase/client'
 import { isAdmin } from '@/lib/admin'
 import { equipmentLabel } from '@/lib/equipment'
+import { muscleLabel } from '@/lib/muscles'
 import { Exercise } from '@/types/database'
 import { useRouter, useParams } from 'next/navigation'
 import AddToRoutineDialog from './AddToRoutineDialog'
@@ -123,7 +124,11 @@ export default function ExerciseDetailPage() {
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                 {exercise.muscle && (
-                  <Chip label={exercise.muscle.name} size="small" color="primary" />
+                  <Chip
+                    label={muscleLabel(exercise.muscle.slug, exercise.muscle.name)}
+                    size="small"
+                    color="primary"
+                  />
                 )}
                 {exercise.difficulty && (
                   <Chip
