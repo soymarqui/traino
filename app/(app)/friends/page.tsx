@@ -48,7 +48,7 @@ export default function FriendsPage() {
         .from('routines')
         .select('id, name, owner_id')
         .in('owner_id', ids)
-        .eq('is_public', true)
+        .eq('visibility', 'public')
         .order('created_at')
       rows = (routines || []).map((r: { id: string; name: string; owner_id: string }) => ({
         id: r.id,

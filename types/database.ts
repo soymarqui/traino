@@ -74,11 +74,14 @@ export type UserExercise = {
   sets?: UserExerciseSet[]
 }
 
+export type RoutineVisibility = 'private' | 'unlisted' | 'public'
+
 export type Routine = {
   id: string
   owner_id: string
   name: string
   is_public: boolean
+  visibility: RoutineVisibility
   created_at: string
   exercises?: RoutineExercise[]
 }

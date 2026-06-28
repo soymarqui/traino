@@ -20,15 +20,27 @@ import ShareIcon from '@mui/icons-material/Share'
 import EditIcon from '@mui/icons-material/Edit'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import LinkOffIcon from '@mui/icons-material/LinkOff'
+import LockIcon from '@mui/icons-material/Lock'
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
+import PublicIcon from '@mui/icons-material/Public'
 import { createClient } from '@/lib/supabase/client'
 import { duplicateRoutine } from '@/lib/routines'
 import { useRouter } from 'next/navigation'
 import SwipeableRow from '@/components/SwipeableRow'
 
+type Visibility = 'private' | 'unlisted' | 'public'
+
+function VisibilityIcon({ v }: { v: Visibility }) {
+  const sx = { fontSize: 16, color: 'text.secondary' }
+  if (v === 'public') return <PublicIcon sx={sx} />
+  if (v === 'unlisted') return <VisibilityOffIcon sx={sx} />
+  return <LockIcon sx={sx} />
+}
+
 type RoutineRow = {
   id: string
   name: string
-  is_public: boolean
+  visibility: Visibility
   owner_id: string
   routine_exercises: { count: number }[]
   handle?: string | null
@@ -58,7 +70,7 @@ export default function RoutinesPage() {
     setUserId(user?.id ?? null)
 
     const [{ data: ownedData }, { data: profile }, { data: subs }] = await Promise.all([
-      supabase.from('routines').select('id, name, is_public, owner_id, routine_exercises(count)').order('created_at'),
+      supabase.from('routines').select('id, name, visibility, owner_id, routine_exercises(count)').order('created_at'),
       user ? supabase.from('profiles').select('active_routine_id').eq('id', user.id).maybeSingle() : Promise.resolve({ data: null }),
       user ? supabase.from('routine_subscriptions').select('routine_id').eq('user_id', user.id) : Promise.resolve({ data: [] }),
     ])
@@ -71,7 +83,7 @@ export default function RoutinesPage() {
     if (subIds.length) {
       const { data: subRoutines } = await supabase
         .from('routines')
-        .select('id, name, is_public, owner_id, routine_exercises(count)')
+        .select('id, name, visibility, owner_id, routine_exercises(count)')
         .in('id', subIds)
       const ownerIds = [...new Set((subRoutines || []).map((r: { owner_id: string }) => r.owner_id))]
       const { data: profs } = await supabase.from('profiles').select('id, handle').in('id', ownerIds)
@@ -110,9 +122,9 @@ export default function RoutinesPage() {
   }
 
   const share = async (r: RoutineRow) => {
-    if (!r.is_public) {
-      await supabase.from('routines').update({ is_public: true }).eq('id', r.id)
-      setOwned((prev) => prev.map((x) => (x.id === r.id ? { ...x, is_public: true } : x)))
+    if (r.visibility === 'private') {
+      await supabase.from('routines').update({ visibility: 'unlisted' }).eq('id', r.id)
+      setOwned((prev) => prev.map((x) => (x.id === r.id ? { ...x, visibility: 'unlisted' } : x)))
     }
     setShareUrl(`${window.location.origin}/r/${r.id}`)
   }
@@ -182,11 +194,12 @@ export default function RoutinesPage() {
                 <Typography variant="body1" sx={{ fontWeight: 600 }}>
                   {r.name}
                 </Typography>
+                {!isSub && <VisibilityIcon v={r.visibility} />}
                 {isActive && <Chip label="Activa" size="small" color="primary" />}
               </Box>
               <Typography variant="body2" color="text.secondary">
                 {r.routine_exercises?.[0]?.count ?? 0} ejercicios
-                {isSub && r.handle ? ` · por @${r.handle}` : r.is_public && !isSub ? ' · Pública' : ''}
+                {isSub && r.handle ? ` · por @${r.handle}` : ''}
               </Typography>
             </Box>
           </CardContent>
@@ -267,7 +280,7 @@ export default function RoutinesPage() {
         <DialogTitle>Compartir rutina</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Ya es pública. Mandá este link para que se suscriban:
+            Queda accesible por link (no listada). Mandá este link para que se suscriban:
           </Typography>
           <TextField fullWidth value={shareUrl} slotProps={{ input: { readOnly: true } }} />
         </DialogContent>

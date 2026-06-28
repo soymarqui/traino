@@ -8,8 +8,7 @@ import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
-import FormControlLabel from '@mui/material/FormControlLabel'
-import Switch from '@mui/material/Switch'
+import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
@@ -79,10 +78,10 @@ export default function RoutineDetailPage() {
     setLoading(false)
   }
 
-  const togglePublic = async (value: boolean) => {
+  const setVisibility = async (value: 'private' | 'unlisted' | 'public') => {
     if (!routine) return
-    setRoutine({ ...routine, is_public: value })
-    await supabase.from('routines').update({ is_public: value }).eq('id', routineId)
+    setRoutine({ ...routine, visibility: value })
+    await supabase.from('routines').update({ visibility: value }).eq('id', routineId)
   }
 
   const saveName = async () => {
@@ -152,12 +151,24 @@ export default function RoutineDetailPage() {
 
         {!loading && routine && (
           <>
-            <FormControlLabel
-              control={
-                <Switch checked={routine.is_public} onChange={(e) => togglePublic(e.target.checked)} />
+            <TextField
+              label="Visibilidad"
+              select
+              value={routine.visibility}
+              onChange={(e) => setVisibility(e.target.value as 'private' | 'unlisted' | 'public')}
+              fullWidth
+              helperText={
+                routine.visibility === 'private'
+                  ? 'Solo la ves vos.'
+                  : routine.visibility === 'unlisted'
+                  ? 'Accesible con el link, no aparece en tu perfil.'
+                  : 'Visible en tu perfil (para amigos).'
               }
-              label={routine.is_public ? 'Pública' : 'Privada'}
-            />
+            >
+              <MenuItem value="private">🔒 Privada</MenuItem>
+              <MenuItem value="unlisted">🙈 No listada</MenuItem>
+              <MenuItem value="public">🌐 Pública</MenuItem>
+            </TextField>
 
             {days.map((day) => {
               const dayItems = items.filter((i) => i.routine_day_id === day.id)
