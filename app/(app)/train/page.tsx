@@ -68,7 +68,7 @@ export default function TrainPage() {
 
     const { data: exs } = await supabase
       .from('routine_exercises')
-      .select('exercise_id, position, sets:routine_exercise_sets(*)')
+      .select('exercise_id, position, rest_seconds, sets:routine_exercise_sets(*)')
       .eq('routine_day_id', dayId)
       .order('position')
 
@@ -87,21 +87,25 @@ export default function TrainPage() {
       exercise_id: string
       set_number: number
       reps_target: number | null
+      rest_seconds: number | null
       completed: boolean
     }[] = []
-    ;(exs || []).forEach((re: { exercise_id: string; sets: { set_number: number; reps: number | null }[] }) => {
-      const sets = (re.sets || []).slice().sort((a, b) => a.set_number - b.set_number)
-      const list = sets.length ? sets : [{ set_number: 1, reps: null }]
-      list.forEach((s) =>
-        rows.push({
-          workout_id: workout.id,
-          exercise_id: re.exercise_id,
-          set_number: s.set_number,
-          reps_target: s.reps,
-          completed: false,
-        })
-      )
-    })
+    ;(exs || []).forEach(
+      (re: { exercise_id: string; rest_seconds: number | null; sets: { set_number: number; reps: number | null }[] }) => {
+        const sets = (re.sets || []).slice().sort((a, b) => a.set_number - b.set_number)
+        const list = sets.length ? sets : [{ set_number: 1, reps: null }]
+        list.forEach((s) =>
+          rows.push({
+            workout_id: workout.id,
+            exercise_id: re.exercise_id,
+            set_number: s.set_number,
+            reps_target: s.reps,
+            rest_seconds: re.rest_seconds,
+            completed: false,
+          })
+        )
+      }
+    )
 
     if (rows.length) await supabase.from('sets').insert(rows)
     router.push(`/train/${workout.id}`)

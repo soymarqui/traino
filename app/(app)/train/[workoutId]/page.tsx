@@ -41,6 +41,7 @@ type SetRow = {
   reps_actual: number | null
   completed: boolean
   feeling: number | null
+  rest_seconds: number | null
 }
 
 type ExerciseWithSets = {
@@ -58,6 +59,7 @@ export default function WorkoutPage() {
   const [lastWeight, setLastWeight] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [finishing, setFinishing] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [marking, setMarking] = useState<{ set: SetRow; exName: string } | null>(null)
   const [weight, setWeight] = useState('')
   const [feeling, setFeeling] = useState(3)
@@ -93,6 +95,7 @@ export default function WorkoutPage() {
         reps_actual: s.reps_actual,
         completed: s.completed,
         feeling: s.feeling,
+        rest_seconds: s.rest_seconds,
       })
     })
     const list = Array.from(map.values())
@@ -197,6 +200,12 @@ export default function WorkoutPage() {
     router.push('/history')
   }
 
+  const handleDelete = async () => {
+    await supabase.from('sets').delete().eq('workout_id', workoutId)
+    await supabase.from('workouts').delete().eq('id', workoutId)
+    router.push('/dashboard')
+  }
+
   const totalSets = exercises.reduce((a, ex) => a + ex.sets.length, 0)
   const completedSets = exercises.reduce(
     (a, ex) => a + ex.sets.filter((s) => s.completed).length,
@@ -233,7 +242,8 @@ export default function WorkoutPage() {
                 )}
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {exercise.reps_min}–{exercise.reps_max} reps · {exercise.rest_seconds}s descanso
+                {exercise.reps_min}–{exercise.reps_max} reps ·{' '}
+                {(exercise.sets.find((s) => s.rest_seconds != null)?.rest_seconds ?? exercise.rest_seconds)}s descanso
               </Typography>
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -283,6 +293,9 @@ export default function WorkoutPage() {
           <Button variant="contained" size="large" fullWidth onClick={handleFinish} disabled={finishing}>
             {finishing ? 'Guardando...' : 'Finalizar entrenamiento'}
           </Button>
+          <Button color="error" fullWidth onClick={() => setDeleteOpen(true)} sx={{ mt: 1 }}>
+            Eliminar entrenamiento
+          </Button>
         </Box>
       )}
 
@@ -326,6 +339,24 @@ export default function WorkoutPage() {
           </Button>
           <Button variant="contained" onClick={saveMark}>
             Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirmar borrar entrenamiento */}
+      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Eliminar entrenamiento</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Se borra esta sesión y sus series. Esta acción no se puede deshacer.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setDeleteOpen(false)}>
+            Cancelar
+          </Button>
+          <Button color="error" onClick={handleDelete}>
+            Eliminar
           </Button>
         </DialogActions>
       </Dialog>
