@@ -148,21 +148,14 @@ export default function ExercisesPage() {
           <Card key={exercise.id}>
             <CardActionArea href={`/exercises/${exercise.id}`}>
               <CardContent
-                sx={{ display: 'flex', alignItems: 'center', gap: 2 }}
+                sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5 }}
               >
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                    {exercise.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {exercise.muscle?.name} · {exercise.suggested_sets} series · {exercise.reps_min}–{exercise.reps_max} reps
-                  </Typography>
-                </Box>
-                <Chip
-                  label={exercise.difficulty || 'N/A'}
-                  size="small"
-                  sx={{ opacity: 0.7 }}
-                />
+                <Typography variant="body1" sx={{ fontWeight: 600, flex: 1 }}>
+                  {exercise.name}
+                </Typography>
+                {exercise.muscle?.name && (
+                  <Chip label={exercise.muscle.name} size="small" />
+                )}
               </CardContent>
             </CardActionArea>
           </Card>
