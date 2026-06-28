@@ -97,6 +97,7 @@ export default function WorkoutPage() {
   const [routineRef, setRoutineRef] = useState<
     Record<string, Record<number, { id: string; reps: number | null; weight: number | null }>>
   >({})
+  const [routineReId, setRoutineReId] = useState<Record<string, string>>({})
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([])
   const [shareOpen, setShareOpen] = useState(false)
   const [shareSel, setShareSel] = useState<string[]>([])
@@ -142,16 +143,19 @@ export default function WorkoutPage() {
       if (rid) {
         const { data: res } = await supabase
           .from('routine_exercises')
-          .select('exercise_id, sets:routine_exercise_sets(id, set_number, reps, weight)')
+          .select('id, exercise_id, sets:routine_exercise_sets(id, set_number, reps, weight)')
           .eq('routine_id', rid)
         const ref: Record<string, Record<number, { id: string; reps: number | null; weight: number | null }>> = {}
+        const reIds: Record<string, string> = {}
         ;(res || []).forEach((re: any) => {
           ref[re.exercise_id] = {}
+          reIds[re.exercise_id] = re.id
           ;(re.sets || []).forEach((s: { id: string; set_number: number; reps: number | null; weight: number | null }) => {
             ref[re.exercise_id][s.set_number] = { id: s.id, reps: s.reps, weight: s.weight }
           })
         })
         setRoutineRef(ref)
+        setRoutineReId(reIds)
       }
     }
 
@@ -281,18 +285,37 @@ export default function WorkoutPage() {
     startRest(marking.set.rest_seconds ?? 60)
   }
 
-  const updateRoutineRef = async () => {
-    if (!marking) return
-    const ex = marking.set.exercise_id
-    const sn = marking.set.set_number
-    const ref = routineRef[ex]?.[sn]
-    const w = weight.trim() === '' ? null : parseFloat(weight)
-    const r = reps.trim() === '' ? null : parseInt(reps)
-    if (ref) {
-      await supabase.from('routine_exercise_sets').update({ weight: w, reps: r }).eq('id', ref.id)
-      setRoutineRef((prev) => ({ ...prev, [ex]: { ...prev[ex], [sn]: { ...ref, weight: w, reps: r } } }))
-    }
-    await saveMark()
+  // ¿El ejercicio difiere de la rutina activa (cantidad de series o reps)?
+  const routineDiffers = (ex: ExerciseWithSets) => {
+    const ref = routineRef[ex.id]
+    if (!ref) return false
+    const refNums = Object.keys(ref).length
+    if (refNums !== ex.sets.length) return true
+    return ex.sets.some((s) => {
+      const r = ref[s.set_number]
+      return r && (s.reps_actual ?? s.reps_target) !== r.reps
+    })
+  }
+
+  // Sincroniza las series del ejercicio en la rutina activa con lo realmente hecho.
+  const syncExerciseToRoutine = async (ex: ExerciseWithSets) => {
+    const reId = routineReId[ex.id]
+    if (!reId) return
+    await supabase.from('routine_exercise_sets').delete().eq('routine_exercise_id', reId)
+    const rows = ex.sets
+      .slice()
+      .sort((a, b) => a.set_number - b.set_number)
+      .map((s, i) => ({
+        routine_exercise_id: reId,
+        set_number: i + 1,
+        reps: s.reps_actual ?? s.reps_target,
+        weight: s.weight,
+      }))
+    await supabase.from('routine_exercise_sets').insert(rows)
+    // Refrescar la referencia local.
+    const ref: Record<number, { id: string; reps: number | null; weight: number | null }> = {}
+    rows.forEach((r) => (ref[r.set_number] = { id: '', reps: r.reps, weight: r.weight }))
+    setRoutineRef((prev) => ({ ...prev, [ex.id]: ref }))
   }
 
   const deleteSet = async () => {
@@ -706,6 +729,17 @@ export default function WorkoutPage() {
               <Button size="small" onClick={() => addSet(exercise)} sx={{ mt: 1 }}>
                 + Agregar serie
               </Button>
+              {routineDiffers(exercise) && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="primary"
+                  onClick={() => syncExerciseToRoutine(exercise)}
+                  sx={{ mt: 1, ml: 1 }}
+                >
+                  Actualizar en rutina
+                </Button>
+              )}
               </>
               )}
             </CardContent>
@@ -815,19 +849,6 @@ export default function WorkoutPage() {
               />
             </Box>
           </Box>
-
-          {(() => {
-            const ref = marking ? routineRef[marking.set.exercise_id]?.[marking.set.set_number] : undefined
-            if (!ref) return null
-            const w = weight.trim() === '' ? null : parseFloat(weight)
-            const r = reps.trim() === '' ? null : parseInt(reps)
-            if (w === ref.weight && r === ref.reps) return null
-            return (
-              <Button variant="outlined" color="primary" onClick={updateRoutineRef}>
-                Actualizar en rutina
-              </Button>
-            )
-          })()}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button color="error" onClick={deleteSet} sx={{ mr: 'auto' }}>
