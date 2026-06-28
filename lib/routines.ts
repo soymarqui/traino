@@ -8,7 +8,9 @@ export async function duplicateRoutine(
   ownerId: string,
   nameSuffix = ' (copia)'
 ): Promise<string | null> {
-  const { data: src } = await supabase.from('routines').select('name').eq('id', sourceId).single()
+  const { data: src } = await supabase.from('routines').select('name, owner_id').eq('id', sourceId).single()
+  // Si la rutina es de otro usuario, NO se copian los pesos (son personales).
+  const foreign = !!src?.owner_id && src.owner_id !== ownerId
   const { data: days } = await supabase
     .from('routine_days')
     .select('*')
@@ -61,7 +63,7 @@ export async function duplicateRoutine(
           reps_max: s.reps_max,
           duration_seconds: s.duration_seconds,
           to_failure: s.to_failure,
-          weight: s.weight,
+          weight: foreign ? null : s.weight,
         }))
       )
     }
