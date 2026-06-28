@@ -33,6 +33,38 @@ function dateKey(iso: string): string {
   ).padStart(2, '0')}`
 }
 
+// Grupos musculares para la sugerencia del día.
+const GROUP_DEFS = [
+  { name: 'Piernas', emoji: '🦵', slugs: ['cuadriceps', 'isquios', 'gluteos', 'pantorrillas'] },
+  { name: 'Pecho', emoji: '🎽', slugs: ['pecho'] },
+  { name: 'Espalda', emoji: '🦅', slugs: ['espalda'] },
+  { name: 'Hombros', emoji: '🏔️', slugs: ['hombros'] },
+  { name: 'Brazos', emoji: '💪', slugs: ['biceps', 'triceps', 'antebrazos'] },
+  { name: 'Core', emoji: '🧱', slugs: ['abdominales'] },
+]
+const SLUG_TO_GROUP: Record<string, number> = {}
+GROUP_DEFS.forEach((g, i) => g.slugs.forEach((s) => (SLUG_TO_GROUP[s] = i)))
+
+function computeSuggestion(hist: { workout?: { started_at: string } | null; exercise?: { muscle?: { slug: string } | null } | null }[]): string {
+  const cutoff = Date.now() - 21 * 86400000
+  const counts = GROUP_DEFS.map(() => 0)
+  let total = 0
+  hist.forEach((h) => {
+    if (!h.workout) return
+    if (new Date(h.workout.started_at).getTime() < cutoff) return
+    const slug = h.exercise?.muscle?.slug
+    if (slug == null || !(slug in SLUG_TO_GROUP)) return
+    counts[SLUG_TO_GROUP[slug]]++
+    total++
+  })
+  if (total === 0) return 'Arrancá por donde quieras 💪'
+  let min = 0
+  counts.forEach((c, i) => {
+    if (c < counts[min]) min = i
+  })
+  return `Hoy toca: ${GROUP_DEFS[min].name} ${GROUP_DEFS[min].emoji}`
+}
+
 export default function DashboardPage() {
   const [name, setName] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
@@ -40,6 +72,7 @@ export default function DashboardPage() {
   const [plannedDates, setPlannedDates] = useState<string[]>([])
   const [snack, setSnack] = useState('')
   const [phrase, setPhrase] = useState('')
+  const [suggestion, setSuggestion] = useState('')
   const router = useRouter()
   const supabase = createClient()
 
@@ -68,6 +101,19 @@ export default function DashboardPage() {
         .from('planned_workouts')
         .select('date')
       setPlannedDates((planned || []).map((p: { date: string }) => p.date))
+
+      // Sugerencia del día.
+      const now = new Date()
+      const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+      if ((planned || []).some((p: { date: string }) => p.date === todayKey)) {
+        setSuggestion('Hoy tenés un entrenamiento planeado 📅')
+      } else {
+        const { data: hist } = await supabase
+          .from('sets')
+          .select('exercise:exercises(muscle:muscles(slug)), workout:workouts(started_at)')
+          .eq('completed', true)
+        setSuggestion(computeSuggestion((hist as any) || []))
+      }
     }
     load()
   }, [])
@@ -105,6 +151,11 @@ export default function DashboardPage() {
         >
           Empezar entrenamiento
         </Button>
+        {suggestion && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5, textAlign: 'center' }}>
+            {suggestion}
+          </Typography>
+        )}
       </Box>
 
       {/* Calendario */}
