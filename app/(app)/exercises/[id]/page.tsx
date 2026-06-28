@@ -9,6 +9,7 @@ import Chip from '@mui/material/Chip'
 import Divider from '@mui/material/Divider'
 import IconButton from '@mui/material/IconButton'
 import Button from '@mui/material/Button'
+import Alert from '@mui/material/Alert'
 import Snackbar from '@mui/material/Snackbar'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import AddIcon from '@mui/icons-material/Add'
@@ -26,6 +27,38 @@ const DIFFICULTY_LABELS: Record<string, string> = {
   beginner: 'Principiante',
   intermediate: 'Intermedio',
   advanced: 'Avanzado',
+}
+
+const norm = (s: string) =>
+  s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+
+// Palabras de una observación que sugieren cuidado con cada músculo.
+const INJURY_KEYWORDS: Record<string, string[]> = {
+  pecho: ['pecho', 'pectoral'],
+  espalda: ['espalda', 'lumbar', 'columna', 'dorsal'],
+  hombros: ['hombro'],
+  biceps: ['biceps', 'codo'],
+  triceps: ['triceps', 'codo'],
+  cuadriceps: ['cuadriceps', 'rodilla', 'sentadilla'],
+  isquios: ['isquio', 'rodilla', 'femoral'],
+  gluteos: ['gluteo', 'cadera'],
+  pantorrillas: ['pantorrilla', 'gemelo', 'tobillo'],
+  abdominales: ['abdomen', 'abdominal', 'core'],
+  antebrazos: ['antebrazo', 'muneca'],
+}
+
+function alignsWithGoal(goal: string | null | undefined, ex: Exercise): boolean {
+  if (!goal || ex.unit !== 'reps') return false
+  if (goal === 'ganar_musculo') return ex.suggested_sets >= 3 && ex.reps_min >= 6 && ex.reps_max <= 15
+  if (goal === 'bajar_peso') return ex.reps_max >= 12
+  if (goal === 'rendimiento') return ex.reps_min <= 6
+  return false
+}
+
+function injuryWarning(observations: string, slug?: string | null): boolean {
+  if (!observations.trim() || !slug) return false
+  const obs = norm(observations)
+  return (INJURY_KEYWORDS[slug] || []).some((k) => obs.includes(norm(k)))
 }
 
 // Extrae el ID de un video de YouTube desde las URLs más comunes:
@@ -70,6 +103,8 @@ export default function ExerciseDetailPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [added, setAdded] = useState(false)
   const [admin, setAdmin] = useState(false)
+  const [goal, setGoal] = useState<string | null>(null)
+  const [observations, setObservations] = useState('')
   const router = useRouter()
   const params = useParams()
   const exerciseId = params.id as string
@@ -79,6 +114,8 @@ export default function ExerciseDetailPage() {
     fetchExercise()
     supabase.auth.getUser().then(({ data: { user } }) => {
       setAdmin(isAdmin(user?.email))
+      setGoal((user?.user_metadata?.goal as string | undefined) ?? null)
+      setObservations((user?.user_metadata?.observations as string | undefined) ?? '')
     })
   }, [])
 
@@ -136,8 +173,17 @@ export default function ExerciseDetailPage() {
                     size="small"
                   />
                 )}
+                {alignsWithGoal(goal, exercise) && (
+                  <Chip label="✅ Se alinea con tu objetivo" size="small" color="success" />
+                )}
               </Box>
             </Box>
+
+            {injuryWarning(observations, exercise.muscle?.slug) && (
+              <Alert severity="warning">
+                ⚠️ Revisá si esto es apto para vos — tenés una observación que involucra este músculo.
+              </Alert>
+            )}
 
             {/* Agregar a entrenamiento */}
             <Button
