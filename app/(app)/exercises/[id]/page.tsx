@@ -113,6 +113,7 @@ export default function ExerciseDetailPage() {
   const [isFav, setIsFav] = useState(false)
   const [inActiveRoutine, setInActiveRoutine] = useState(false)
   const [routinesWith, setRoutinesWith] = useState<{ id: string; name: string }[]>([])
+  const [scrollY, setScrollY] = useState(0)
   const router = useRouter()
   const params = useParams()
   const exerciseId = params.id as string
@@ -173,6 +174,12 @@ export default function ExerciseDetailPage() {
     })
   }, [])
 
+  useEffect(() => {
+    const onScroll = () => setScrollY(window.scrollY)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   const fetchExercise = async () => {
     setLoading(true)
     const { data } = await supabase
@@ -197,6 +204,7 @@ export default function ExerciseDetailPage() {
   }
 
   const videoId = exercise?.video_url ? getYouTubeId(exercise.video_url) : null
+  const videoOpacity = Math.max(0, 1 - scrollY / 320)
 
   return (
     <Box sx={{ minHeight: '100vh' }}>
@@ -227,12 +235,14 @@ export default function ExerciseDetailPage() {
         </IconButton>
       )}
 
-      {/* Header fijo: video de fondo (o placeholder) */}
+      {/* Header fijo: video de fondo (4:5), se desvanece con el scroll */}
       <Box
         sx={{
-          position: 'fixed', top: 0, left: 0, right: 0, height: '44vh', zIndex: 0,
+          position: 'fixed', top: 0, left: 0, right: 0, height: '60vh', zIndex: 0,
           bgcolor: 'black', overflow: 'hidden',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: videoOpacity,
+          transition: 'opacity 0.1s linear',
         }}
       >
         {videoId ? (
@@ -241,11 +251,31 @@ export default function ExerciseDetailPage() {
             src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1&playsinline=1&rel=0`}
             title={exercise?.name}
             allow="autoplay; encrypted-media"
-            sx={{ width: '100%', height: '100%', border: 0, pointerEvents: 'none' }}
+            sx={{
+              border: 0, pointerEvents: 'none',
+              // Cubrir manteniendo proporción 4:5 (1080x1350).
+              width: 'max(100%, 80vh)',
+              height: 'max(100%, 125vw)',
+            }}
           />
         ) : (
           <Typography sx={{ fontSize: 72, opacity: 0.6 }}>
             {muscleEmoji(exercise?.muscle?.slug) || '🏋️'}
+          </Typography>
+        )}
+        {/* Gradiente para legibilidad del nombre */}
+        <Box
+          sx={{
+            position: 'absolute', left: 0, right: 0, bottom: 0, height: '50%',
+            background: 'linear-gradient(to top, rgba(10,10,10,0.95), rgba(10,10,10,0))',
+          }}
+        />
+        {!loading && exercise && (
+          <Typography
+            variant="h4"
+            sx={{ position: 'absolute', left: 24, right: 24, bottom: 24, fontWeight: 800, color: '#fff' }}
+          >
+            {exercise.name}
           </Typography>
         )}
       </Box>
@@ -253,7 +283,7 @@ export default function ExerciseDetailPage() {
       {/* Sheet que sube sobre el video al hacer scroll */}
       <Box
         sx={{
-          position: 'relative', zIndex: 1, mt: '40vh', minHeight: '64vh',
+          position: 'relative', zIndex: 1, mt: '54vh', minHeight: '64vh',
           bgcolor: 'background.default',
           borderTopLeftRadius: 24, borderTopRightRadius: 24,
           boxShadow: '0 -8px 24px rgba(0,0,0,0.6)',
