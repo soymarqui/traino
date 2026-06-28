@@ -219,16 +219,21 @@ export default function RoutineDetailPage() {
                       </CardContent>
                     </Card>
                   ))}
+
+                  <Button
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={() => router.push(`/routine/${routineId}/add/${day.id}`)}
+                    sx={{ alignSelf: 'flex-start' }}
+                  >
+                    Agregar ejercicios
+                  </Button>
                 </Box>
               )
             })}
 
             <Button variant="outlined" color="inherit" startIcon={<AddIcon />} onClick={addDay}>
               Agregar día
-            </Button>
-
-            <Button variant="outlined" startIcon={<AddIcon />} href="/exercises">
-              Agregar ejercicios
             </Button>
 
             <Button color="error" onClick={deleteRoutine} sx={{ mt: 1 }}>
