@@ -1,265 +1,177 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
+import CardActionArea from '@mui/material/CardActionArea'
 import CardContent from '@mui/material/CardContent'
-import Chip from '@mui/material/Chip'
 import Button from '@mui/material/Button'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { createClient } from '@/lib/supabase/client'
-import { equipmentLabel } from '@/lib/equipment'
-import { Exercise, Muscle } from '@/types/database'
 import { useRouter } from 'next/navigation'
 
+type DayRow = {
+  id: string
+  name: string
+  position: number
+  routine_exercises: { count: number }[]
+}
+
 export default function TrainPage() {
-  const [exercises, setExercises] = useState<Exercise[]>([])
-  const [muscles, setMuscles] = useState<Muscle[]>([])
-  const [lastDone, setLastDone] = useState<Record<string, number>>({})
-  const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null)
-  const [selected, setSelected] = useState<string[]>([])
+  const [routineName, setRoutineName] = useState<string | null>(null)
+  const [days, setDays] = useState<DayRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [starting, setStarting] = useState(false)
+  const [starting, setStarting] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
-    const load = async () => {
-      const [{ data: ex }, { data: ms }, { data: workouts }, { data: sets }] =
-        await Promise.all([
-          supabase
-            .from('exercises')
-            .select('*, muscle:muscles(id, name, slug)')
-            .eq('active', true)
-            .order('name'),
-          supabase.from('muscles').select('*').order('name'),
-          supabase.from('workouts').select('id, started_at'),
-          supabase.from('sets').select('exercise_id, workout_id'),
-        ])
-
-      // Última vez que se hizo cada ejercicio (para sugerir lo menos reciente).
-      const wDate: Record<string, number> = {}
-      ;(workouts || []).forEach((w: { id: string; started_at: string }) => {
-        wDate[w.id] = new Date(w.started_at).getTime()
-      })
-      const last: Record<string, number> = {}
-      ;(sets || []).forEach((s: { exercise_id: string; workout_id: string }) => {
-        const t = wDate[s.workout_id] ?? 0
-        if (t > (last[s.exercise_id] ?? 0)) last[s.exercise_id] = t
-      })
-
-      setExercises((ex as Exercise[]) || [])
-      setMuscles(ms || [])
-      setLastDone(last)
-      setLoading(false)
-    }
     load()
   }, [])
 
-  // Filtrado por músculo + orden por "menos reciente" (nunca hecho primero).
-  const ordered = useMemo(() => {
-    const list = selectedMuscle
-      ? exercises.filter((e) => e.muscle_id === selectedMuscle)
-      : exercises
-    return [...list].sort(
-      (a, b) => (lastDone[a.id] ?? 0) - (lastDone[b.id] ?? 0)
-    )
-  }, [exercises, selectedMuscle, lastDone])
-
-  const suggestedId = ordered[0]?.id
-
-  const toggle = (id: string) =>
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    )
-
-  const handleStart = async () => {
-    if (selected.length === 0) return
-    setStarting(true)
-
+  const load = async () => {
+    setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setLoading(false)
+      return
+    }
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('active_routine_id')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    const activeId = (profile as { active_routine_id: string | null } | null)?.active_routine_id
+    if (!activeId) {
+      setLoading(false)
+      return
+    }
+
+    const [{ data: routine }, { data: daysData }] = await Promise.all([
+      supabase.from('routines').select('name').eq('id', activeId).maybeSingle(),
+      supabase
+        .from('routine_days')
+        .select('id, name, position, routine_exercises(count)')
+        .eq('routine_id', activeId)
+        .order('position'),
+    ])
+
+    setRoutineName((routine as { name: string } | null)?.name ?? null)
+    setDays((daysData as DayRow[]) || [])
+    setLoading(false)
+  }
+
+  const startDay = async (dayId: string) => {
+    setStarting(dayId)
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { data: exs } = await supabase
+      .from('routine_exercises')
+      .select('exercise_id, position, sets:routine_exercise_sets(*)')
+      .eq('routine_day_id', dayId)
+      .order('position')
+
     const { data: workout, error } = await supabase
       .from('workouts')
       .insert({ user_id: user?.id })
       .select()
       .single()
-
     if (error || !workout) {
-      setStarting(false)
+      setStarting(null)
       return
     }
 
-    const chosen = exercises.filter((e) => selected.includes(e.id))
-    const setsToInsert = chosen.flatMap((ex) =>
-      Array.from({ length: ex.suggested_sets || 3 }, (_, i) => ({
-        workout_id: workout.id,
-        exercise_id: ex.id,
-        set_number: i + 1,
-        reps_target: ex.reps_min,
-        completed: false,
-      }))
-    )
-    await supabase.from('sets').insert(setsToInsert)
+    const rows: {
+      workout_id: string
+      exercise_id: string
+      set_number: number
+      reps_target: number | null
+      completed: boolean
+    }[] = []
+    ;(exs || []).forEach((re: { exercise_id: string; sets: { set_number: number; reps: number | null }[] }) => {
+      const sets = (re.sets || []).slice().sort((a, b) => a.set_number - b.set_number)
+      const list = sets.length ? sets : [{ set_number: 1, reps: null }]
+      list.forEach((s) =>
+        rows.push({
+          workout_id: workout.id,
+          exercise_id: re.exercise_id,
+          set_number: s.set_number,
+          reps_target: s.reps,
+          completed: false,
+        })
+      )
+    })
 
+    if (rows.length) await supabase.from('sets').insert(rows)
     router.push(`/train/${workout.id}`)
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', pb: 16 }}>
+    <Box sx={{ minHeight: '100vh', pb: 12 }}>
       {/* Header */}
-      <Box sx={{ px: 3, pt: 4, pb: 1 }}>
+      <Box sx={{ px: 3, pt: 4, pb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Nuevo entrenamiento
+          Entrenar
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Deslizá y tocá los ejercicios que querés hacer
-        </Typography>
+        {routineName && (
+          <Typography variant="body2" color="text.secondary">
+            Rutina activa: <b>{routineName}</b>
+          </Typography>
+        )}
       </Box>
 
-      {/* Filtro por músculo */}
-      <Box
-        sx={{
-          px: 3,
-          py: 2,
-          display: 'flex',
-          gap: 1,
-          overflowX: 'auto',
-          '&::-webkit-scrollbar': { display: 'none' },
-        }}
-      >
-        <Chip
-          label="Todos"
-          onClick={() => setSelectedMuscle(null)}
-          color={selectedMuscle === null ? 'primary' : 'default'}
-          sx={{ flexShrink: 0 }}
-        />
-        {muscles.map((m) => (
-          <Chip
-            key={m.id}
-            label={m.name}
-            onClick={() => setSelectedMuscle(m.id)}
-            color={selectedMuscle === m.id ? 'primary' : 'default'}
-            sx={{ flexShrink: 0 }}
-          />
-        ))}
+      <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {loading && <Typography color="text.secondary">Cargando...</Typography>}
+
+        {!loading && !routineName && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, pt: 6, textAlign: 'center' }}>
+            <Typography color="text.secondary">
+              No tenés una rutina activa. Activá una para entrenar con tu plan.
+            </Typography>
+            <Button variant="contained" href="/routine">
+              Ir a mis rutinas
+            </Button>
+          </Box>
+        )}
+
+        {!loading && routineName && (
+          <>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}
+            >
+              ¿Qué hacés hoy?
+            </Typography>
+
+            {days.map((day) => {
+              const count = day.routine_exercises?.[0]?.count ?? 0
+              return (
+                <Card key={day.id}>
+                  <CardActionArea
+                    disabled={starting !== null || count === 0}
+                    onClick={() => startDay(day.id)}
+                  >
+                    <CardContent>
+                      <Typography variant="body1" sx={{ fontWeight: 700 }}>
+                        {day.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {count} ejercicios{starting === day.id ? ' · empezando...' : ''}
+                      </Typography>
+                    </CardContent>
+                  </CardActionArea>
+                </Card>
+              )
+            })}
+          </>
+        )}
+
+        <Button variant="outlined" color="inherit" href="/train/free" sx={{ mt: 2 }}>
+          Entrenamiento libre
+        </Button>
       </Box>
-
-      {/* Carrusel de ejercicios */}
-      {loading && (
-        <Typography color="text.secondary" sx={{ px: 3 }}>
-          Cargando...
-        </Typography>
-      )}
-
-      {!loading && ordered.length === 0 && (
-        <Typography color="text.secondary" sx={{ px: 3 }}>
-          No hay ejercicios para ese filtro.
-        </Typography>
-      )}
-
-      {!loading && ordered.length > 0 && (
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 2,
-            overflowX: 'auto',
-            scrollSnapType: 'x mandatory',
-            px: 3,
-            pb: 1,
-            '&::-webkit-scrollbar': { display: 'none' },
-          }}
-        >
-          {ordered.map((ex) => {
-            const isSelected = selected.includes(ex.id)
-            const isSuggested = ex.id === suggestedId
-            return (
-              <Card
-                key={ex.id}
-                onClick={() => toggle(ex.id)}
-                sx={{
-                  flex: '0 0 78%',
-                  scrollSnapAlign: 'center',
-                  position: 'relative',
-                  cursor: 'pointer',
-                  border: '2px solid',
-                  borderColor: isSelected ? 'primary.main' : 'divider',
-                  transition: 'border-color 0.15s ease',
-                }}
-              >
-                <CardContent
-                  sx={{
-                    minHeight: 180,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 1,
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                    {isSuggested && (
-                      <Chip
-                        label="Sugerido"
-                        size="small"
-                        color="primary"
-                        sx={{ fontWeight: 700 }}
-                      />
-                    )}
-                    <Box sx={{ flex: 1 }} />
-                    {isSelected && (
-                      <CheckCircleIcon sx={{ color: 'primary.main' }} />
-                    )}
-                  </Box>
-
-                  <Typography variant="h6" sx={{ fontWeight: 700, mt: 1 }}>
-                    {ex.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {ex.muscle?.name}
-                  </Typography>
-
-                  <Box sx={{ flex: 1 }} />
-
-                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                    {(ex.equipment ?? []).map((eq) => (
-                      <Chip
-                        key={eq}
-                        label={equipmentLabel(eq)}
-                        size="small"
-                        sx={{ opacity: 0.7 }}
-                      />
-                    ))}
-                  </Box>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </Box>
-      )}
-
-      {/* Botón flotante, por encima del menú inferior */}
-      {selected.length > 0 && (
-        <Box
-          sx={{
-            position: 'fixed',
-            bottom: '76px',
-            left: '16px',
-            right: '16px',
-            zIndex: 11,
-          }}
-        >
-          <Button
-            variant="contained"
-            size="large"
-            fullWidth
-            onClick={handleStart}
-            disabled={starting}
-          >
-            {starting
-              ? 'Empezando...'
-              : `Empezar entrenamiento (${selected.length})`}
-          </Button>
-        </Box>
-      )}
     </Box>
   )
 }
