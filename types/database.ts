@@ -14,7 +14,8 @@ export type Exercise = {
   reps_max: number
   rest_seconds: number
   equipment: string[] | null
-  unit: 'reps' | 'time'
+  unit: 'reps' | 'time' | 'distance' | 'steps'
+  distance_unit: 'km' | 'm' | null
   difficulty: 'beginner' | 'intermediate' | 'advanced' | null
   description: string | null
   notes: string | null

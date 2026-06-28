@@ -16,6 +16,7 @@ import IconButton from '@mui/material/IconButton'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import { muscleLabel } from '@/lib/muscles'
+import { unitShort } from '@/lib/units'
 import { useRestTimer } from '@/components/RestTimer'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
@@ -71,6 +72,8 @@ type ExerciseWithSets = {
   reps_max: number
   rest_seconds: number
   is_warmup: boolean
+  unit: string
+  distance_unit: string | null
   muscle?: { name: string; slug: string } | null
   sets: SetRow[]
 }
@@ -98,7 +101,7 @@ export default function WorkoutPage() {
   const [shareSel, setShareSel] = useState<string[]>([])
   const [shared, setShared] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [marking, setMarking] = useState<{ set: SetRow; exName: string } | null>(null)
+  const [marking, setMarking] = useState<{ set: SetRow; exName: string; unitLabel: string } | null>(null)
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
   const [feeling, setFeeling] = useState(3)
@@ -153,7 +156,7 @@ export default function WorkoutPage() {
 
     const { data: sets } = await supabase
       .from('sets')
-      .select('*, exercise:exercises(id, name, reps_min, reps_max, rest_seconds, is_warmup, muscle:muscles(name, slug))')
+      .select('*, exercise:exercises(id, name, reps_min, reps_max, rest_seconds, is_warmup, unit, distance_unit, muscle:muscles(name, slug))')
       .eq('workout_id', workoutId)
       .order('set_number')
 
@@ -239,8 +242,9 @@ export default function WorkoutPage() {
     setLastWeight(last)
   }
 
-  const openMark = (set: SetRow, exName: string, exId: string) => {
-    setMarking({ set, exName })
+  const openMark = (set: SetRow, ex: ExerciseWithSets) => {
+    const exId = ex.id
+    setMarking({ set, exName: ex.name, unitLabel: unitShort(ex.unit, ex.distance_unit) })
     setWeight(
       set.weight != null
         ? String(set.weight)
@@ -667,7 +671,7 @@ export default function WorkoutPage() {
                 {exercise.sets.map((set) => (
                   <Box
                     key={set.id}
-                    onClick={() => openMark(set, exercise.name, exercise.id)}
+                    onClick={() => openMark(set, exercise)}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
@@ -688,7 +692,7 @@ export default function WorkoutPage() {
                       {set.set_number}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-                      {set.reps_target ? `${set.reps_target} reps` : 'serie'}
+                      {set.reps_target ? `${set.reps_target} ${unitShort(exercise.unit, exercise.distance_unit)}` : 'serie'}
                     </Typography>
                     {set.completed && (
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -776,7 +780,7 @@ export default function WorkoutPage() {
               autoFocus
             />
             <TextField
-              label="Reps"
+              label={marking?.unitLabel ?? 'reps'}
               type="number"
               value={reps}
               onChange={(e) => setReps(e.target.value)}

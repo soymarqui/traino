@@ -22,6 +22,7 @@ import { createClient } from '@/lib/supabase/client'
 import { isAdmin } from '@/lib/admin'
 import { equipmentLabel } from '@/lib/equipment'
 import { muscleLabel, muscleEmoji } from '@/lib/muscles'
+import { unitShort } from '@/lib/units'
 import { Exercise } from '@/types/database'
 import { useRouter, useParams } from 'next/navigation'
 import AddToRoutineDialog from './AddToRoutineDialog'
@@ -355,7 +356,7 @@ export default function ExerciseDetailPage() {
                   <Divider />
                   <DetailRow
                     label="Series sugeridas"
-                    value={`${exercise.suggested_sets} × ${exercise.reps_min}–${exercise.reps_max} ${exercise.unit === 'time' ? 'seg' : 'reps'}`}
+                    value={`${exercise.suggested_sets} × ${exercise.reps_min}–${exercise.reps_max} ${unitShort(exercise.unit, exercise.distance_unit)}`}
                   />
                   <Divider />
                   <DetailRow label="Descanso sugerido" value={`${exercise.rest_seconds}s`} />

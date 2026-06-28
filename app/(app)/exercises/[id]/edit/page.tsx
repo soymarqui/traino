@@ -39,6 +39,7 @@ export default function EditExercisePage() {
           muscle_id: data.muscle_id,
           equipment: data.equipment ?? [],
           unit: data.unit ?? 'reps',
+          distance_unit: data.distance_unit ?? '',
           video_url: data.video_url ?? '',
           description: data.description ?? '',
           notes: data.notes ?? '',

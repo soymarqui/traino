@@ -15,11 +15,14 @@ import { EQUIPMENT_OPTIONS } from '@/lib/equipment'
 import { Muscle } from '@/types/database'
 import { useRouter } from 'next/navigation'
 
+export type ExerciseUnit = 'reps' | 'time' | 'distance' | 'steps'
+
 export type ExerciseFormValues = {
   name: string
   muscle_id: string
   equipment: string[]
-  unit: 'reps' | 'time'
+  unit: ExerciseUnit
+  distance_unit: 'km' | 'm' | ''
   video_url: string
   description: string
   notes: string
@@ -31,6 +34,7 @@ const EMPTY: ExerciseFormValues = {
   muscle_id: '',
   equipment: [],
   unit: 'reps',
+  distance_unit: '',
   video_url: '',
   description: '',
   notes: '',
@@ -86,6 +90,7 @@ export default function ExerciseForm({
       muscle_id: form.muscle_id,
       equipment: form.equipment.length ? form.equipment : null,
       unit: form.unit,
+      distance_unit: form.unit === 'distance' ? form.distance_unit || null : null,
       video_url: form.video_url || null,
       description: form.description || null,
       notes: form.notes || null,
@@ -187,14 +192,29 @@ export default function ExerciseForm({
       <TextField
         label="Unidad"
         value={form.unit}
-        onChange={(e) => set('unit', e.target.value as 'reps' | 'time')}
+        onChange={(e) => set('unit', e.target.value as ExerciseUnit)}
         fullWidth
         select
         helperText="Cómo se mide el ejercicio"
       >
         <MenuItem value="reps">Repeticiones</MenuItem>
         <MenuItem value="time">Tiempo</MenuItem>
+        <MenuItem value="distance">Distancia</MenuItem>
+        <MenuItem value="steps">Pasos</MenuItem>
       </TextField>
+
+      {form.unit === 'distance' && (
+        <TextField
+          label="Unidad de distancia"
+          value={form.distance_unit}
+          onChange={(e) => set('distance_unit', e.target.value as 'km' | 'm' | '')}
+          fullWidth
+          select
+        >
+          <MenuItem value="m">Metros</MenuItem>
+          <MenuItem value="km">Kilómetros</MenuItem>
+        </TextField>
+      )}
 
       <FormControlLabel
         control={
