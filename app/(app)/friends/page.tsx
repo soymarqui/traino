@@ -6,6 +6,7 @@ import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
 import CardActionArea from '@mui/material/CardActionArea'
 import CardContent from '@mui/material/CardContent'
+import Chip from '@mui/material/Chip'
 import TextField from '@mui/material/TextField'
 import InputAdornment from '@mui/material/InputAdornment'
 import Button from '@mui/material/Button'
@@ -21,6 +22,14 @@ import { useRouter } from 'next/navigation'
 
 type Result = { id: string; name: string; handle: string | null }
 type GroupRow = { id: string; name: string }
+type FeedPost = {
+  id: string
+  group_id: string
+  user_id: string
+  summary: string | null
+  photo_url: string | null
+  created_at: string
+}
 
 export default function FriendsPage() {
   const [q, setQ] = useState('')
@@ -28,6 +37,10 @@ export default function FriendsPage() {
   const [searched, setSearched] = useState(false)
   const [loading, setLoading] = useState(false)
   const [groups, setGroups] = useState<GroupRow[]>([])
+  const [feed, setFeed] = useState<FeedPost[]>([])
+  const [groupNames, setGroupNames] = useState<Record<string, string>>({})
+  const [handles, setHandles] = useState<Record<string, string | null>>({})
+  const [order, setOrder] = useState<'reciente' | 'relevante'>('reciente')
   const [createOpen, setCreateOpen] = useState(false)
   const [groupName, setGroupName] = useState('')
   const [creating, setCreating] = useState(false)
@@ -35,12 +48,42 @@ export default function FriendsPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    supabase
-      .from('groups')
-      .select('id, name')
-      .order('created_at')
-      .then(({ data }) => setGroups((data as GroupRow[]) || []))
+    const load = async () => {
+      const { data: gs } = await supabase.from('groups').select('id, name').order('created_at')
+      const groupList = (gs as GroupRow[]) || []
+      setGroups(groupList)
+      const names: Record<string, string> = {}
+      groupList.forEach((g) => (names[g.id] = g.name))
+      setGroupNames(names)
+
+      const { data: posts } = await supabase
+        .from('group_posts')
+        .select('id, group_id, user_id, summary, photo_url, created_at')
+        .order('created_at', { ascending: false })
+        .limit(50)
+      const feedPosts = (posts as FeedPost[]) || []
+      setFeed(feedPosts)
+
+      const uids = [...new Set(feedPosts.map((p) => p.user_id))]
+      if (uids.length) {
+        const { data: profs } = await supabase.from('profiles').select('id, handle').in('id', uids)
+        const h: Record<string, string | null> = {}
+        ;(profs || []).forEach((p: { id: string; handle: string | null }) => (h[p.id] = p.handle))
+        setHandles(h)
+      }
+    }
+    load()
   }, [])
+
+  const orderedFeed =
+    order === 'relevante'
+      ? [...feed].sort((a, b) => {
+          const pa = a.photo_url ? 1 : 0
+          const pb = b.photo_url ? 1 : 0
+          if (pa !== pb) return pb - pa
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        })
+      : feed
 
   const createGroup = async () => {
     if (!groupName.trim()) return
@@ -100,7 +143,7 @@ export default function FriendsPage() {
     <Box sx={{ minHeight: '100vh', pb: 12 }}>
       <Box sx={{ px: 3, pt: 4, pb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Comunidad
+          Comunidades
         </Typography>
         <Typography variant="body2" color="text.secondary">
           Buscá usuarios por su @ y sumate a grupos
@@ -137,6 +180,53 @@ export default function FriendsPage() {
           ))}
         </Box>
       </Box>
+
+      {/* Feed de comunidades */}
+      {feed.length > 0 && (
+        <Box sx={{ px: 3, pb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+              Feed
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Chip
+                label="Reciente"
+                size="small"
+                color={order === 'reciente' ? 'primary' : 'default'}
+                onClick={() => setOrder('reciente')}
+              />
+              <Chip
+                label="Relevante"
+                size="small"
+                color={order === 'relevante' ? 'primary' : 'default'}
+                onClick={() => setOrder('relevante')}
+              />
+            </Box>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {orderedFeed.map((p) => (
+              <Card key={p.id}>
+                <CardActionArea onClick={() => router.push(`/groups/${p.group_id}`)}>
+                  {p.photo_url && (
+                    <Box component="img" src={p.photo_url} alt="" sx={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
+                  )}
+                  <CardContent sx={{ py: 1.5 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {handles[p.user_id] ? `@${handles[p.user_id]}` : 'usuario'}
+                      <Typography component="span" variant="body2" color="text.secondary">
+                        {' · '}{groupNames[p.group_id] ?? 'grupo'}
+                      </Typography>
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {p.summary || 'Compartió un entrenamiento'}
+                    </Typography>
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            ))}
+          </Box>
+        </Box>
+      )}
 
       <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <TextField

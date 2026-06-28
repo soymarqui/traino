@@ -35,7 +35,7 @@ const BOTTOM_TABS = [
   { label: 'Inicio', value: '/dashboard', icon: <HomeIcon /> },
   { label: 'Entrenamiento', value: '/train', icon: <FitnessCenterIcon /> },
   { label: 'Rutina', value: '/routine', icon: <ChecklistIcon /> },
-  { label: 'Comunidad', value: '/friends', icon: <GroupIcon /> },
+  { label: 'Comunidades', value: '/friends', icon: <GroupIcon /> },
 ]
 
 // Secciones secundarias, en el menú lateral (burger).
@@ -54,12 +54,25 @@ export default function AppLayout({
   const router = useRouter()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
+  const [friends, setFriends] = useState<{ id: string; handle: string | null; display_name: string | null; avatar_url: string | null }[]>([])
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
-    })
+      if (!user) return
+      // "Amigos" = co-miembros de tus comunidades.
+      const { data: myMem } = await supabase.from('group_members').select('group_id').eq('user_id', user.id)
+      const gids = (myMem || []).map((m: { group_id: string }) => m.group_id)
+      if (!gids.length) return
+      const { data: coMem } = await supabase.from('group_members').select('user_id').in('group_id', gids)
+      const ids = [...new Set((coMem || []).map((m: { user_id: string }) => m.user_id))].filter((id) => id !== user.id)
+      if (!ids.length) return
+      const { data: profs } = await supabase.from('profiles').select('id, handle, display_name, avatar_url').in('id', ids)
+      setFriends(profs || [])
+    }
+    load()
   }, [])
 
   const go = (value: string) => {
@@ -144,6 +157,31 @@ export default function AppLayout({
               </ListItemButton>
             ))}
           </List>
+
+          {friends.length > 0 && (
+            <>
+              <Divider />
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ px: 2, pt: 1.5, display: 'block', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}
+              >
+                Amigos
+              </Typography>
+              <List>
+                {friends.map((f) => (
+                  <ListItemButton key={f.id} disabled={!f.handle} onClick={() => go(`/u/${f.handle}`)}>
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <Avatar src={f.avatar_url || undefined} sx={{ width: 28, height: 28, fontSize: '0.8rem' }}>
+                        {(f.display_name || f.handle || '?')[0]?.toUpperCase()}
+                      </Avatar>
+                    </ListItemIcon>
+                    <ListItemText primary={f.handle ? `@${f.handle}` : f.display_name || 'usuario'} />
+                  </ListItemButton>
+                ))}
+              </List>
+            </>
+          )}
         </Box>
       </Drawer>
 
