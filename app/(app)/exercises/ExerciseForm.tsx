@@ -21,6 +21,7 @@ export type ExerciseFormValues = {
   equipment: string[]
   unit: 'reps' | 'time'
   video_url: string
+  description: string
   notes: string
   is_warmup: boolean
 }
@@ -31,6 +32,7 @@ const EMPTY: ExerciseFormValues = {
   equipment: [],
   unit: 'reps',
   video_url: '',
+  description: '',
   notes: '',
   is_warmup: false,
 }
@@ -85,6 +87,7 @@ export default function ExerciseForm({
       equipment: form.equipment.length ? form.equipment : null,
       unit: form.unit,
       video_url: form.video_url || null,
+      description: form.description || null,
       notes: form.notes || null,
       is_warmup: form.is_warmup,
     }
@@ -209,13 +212,23 @@ export default function ExerciseForm({
       />
 
       <TextField
-        label="Notas"
+        label="Descripción"
+        value={form.description}
+        onChange={(e) => set('description', e.target.value)}
+        fullWidth
+        multiline
+        rows={2}
+        placeholder="Descripción general del ejercicio"
+      />
+
+      <TextField
+        label="Indicaciones"
         value={form.notes}
         onChange={(e) => set('notes', e.target.value)}
         fullWidth
         multiline
         rows={3}
-        placeholder="Indicaciones técnicas, tips..."
+        placeholder="Cómo hacerlo, técnica, tips..."
       />
 
       <Button

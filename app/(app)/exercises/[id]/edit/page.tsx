@@ -40,6 +40,7 @@ export default function EditExercisePage() {
           equipment: data.equipment ?? [],
           unit: data.unit ?? 'reps',
           video_url: data.video_url ?? '',
+          description: data.description ?? '',
           notes: data.notes ?? '',
           is_warmup: data.is_warmup ?? false,
         })

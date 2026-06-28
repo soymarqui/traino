@@ -16,6 +16,7 @@ export type Exercise = {
   equipment: string[] | null
   unit: 'reps' | 'time'
   difficulty: 'beginner' | 'intermediate' | 'advanced' | null
+  description: string | null
   notes: string | null
   active: boolean
   is_warmup: boolean

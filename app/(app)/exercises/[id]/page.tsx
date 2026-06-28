@@ -275,6 +275,11 @@ export default function ExerciseDetailPage() {
               <Typography variant="h5" sx={{ fontWeight: 700 }}>
                 {exercise.name}
               </Typography>
+              {exercise.description && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  {exercise.description}
+                </Typography>
+              )}
               <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                 {exercise.muscle && (
                   <Chip
@@ -370,10 +375,10 @@ export default function ExerciseDetailPage() {
             {/* Cómo hacerlo */}
             <Box>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                Cómo hacerlo
+                Indicaciones
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
-                {exercise.notes || 'Todavía no hay descripción para este ejercicio.'}
+                {exercise.notes || 'Todavía no hay indicaciones para este ejercicio.'}
               </Typography>
             </Box>
 
