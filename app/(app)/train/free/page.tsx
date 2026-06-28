@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
@@ -14,9 +14,9 @@ import { createClient } from '@/lib/supabase/client'
 import { equipmentLabel } from '@/lib/equipment'
 import { muscleLabel } from '@/lib/muscles'
 import { Exercise, Muscle } from '@/types/database'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function FreeTrainPage() {
+function FreeTrainInner() {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [muscles, setMuscles] = useState<Muscle[]>([])
   const [lastDone, setLastDone] = useState<Record<string, number>>({})
@@ -25,6 +25,8 @@ export default function FreeTrainPage() {
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const date = searchParams.get('date')
   const supabase = createClient()
 
   useEffect(() => {
@@ -77,7 +79,10 @@ export default function FreeTrainPage() {
     const { data: { user } } = await supabase.auth.getUser()
     const { data: workout, error } = await supabase
       .from('workouts')
-      .insert({ user_id: user?.id })
+      .insert({
+        user_id: user?.id,
+        ...(date ? { started_at: new Date(`${date}T12:00:00`).toISOString() } : {}),
+      })
       .select()
       .single()
     if (error || !workout) {
@@ -205,5 +210,13 @@ export default function FreeTrainPage() {
         </Box>
       )}
     </Box>
+  )
+}
+
+export default function FreeTrainPage() {
+  return (
+    <Suspense fallback={null}>
+      <FreeTrainInner />
+    </Suspense>
   )
 }

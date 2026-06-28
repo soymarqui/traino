@@ -108,6 +108,7 @@ export default function HistoryPage() {
           plannedDates={[]}
           onSelectDone={(id) => router.push(`/train/${id}`)}
           onToggleFuture={() => {}}
+          onSelectEmptyPast={(d) => router.push(`/train?date=${d}`)}
         />
       </Box>
 

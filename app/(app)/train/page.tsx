@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
 import CardActionArea from '@mui/material/CardActionArea'
 import CardContent from '@mui/material/CardContent'
 import Button from '@mui/material/Button'
+import Alert from '@mui/material/Alert'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 type DayRow = {
   id: string
@@ -17,12 +18,22 @@ type DayRow = {
   routine_exercises: { count: number }[]
 }
 
-export default function TrainPage() {
+function formatDateLabel(d: string): string {
+  return new Date(`${d}T12:00:00`).toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+}
+
+function TrainInner() {
   const [routineName, setRoutineName] = useState<string | null>(null)
   const [days, setDays] = useState<DayRow[]>([])
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const date = searchParams.get('date') // YYYY-MM-DD para registrar un día pasado
   const supabase = createClient()
 
   useEffect(() => {
@@ -74,7 +85,10 @@ export default function TrainPage() {
 
     const { data: workout, error } = await supabase
       .from('workouts')
-      .insert({ user_id: user?.id })
+      .insert({
+        user_id: user?.id,
+        ...(date ? { started_at: new Date(`${date}T12:00:00`).toISOString() } : {}),
+      })
       .select()
       .single()
     if (error || !workout) {
@@ -126,6 +140,12 @@ export default function TrainPage() {
       </Box>
 
       <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {date && (
+          <Alert severity="info">
+            Registrando un entrenamiento del <b>{formatDateLabel(date)}</b>
+          </Alert>
+        )}
+
         {loading && <Typography color="text.secondary">Cargando...</Typography>}
 
         {!loading && !routineName && (
@@ -172,10 +192,23 @@ export default function TrainPage() {
           </>
         )}
 
-        <Button variant="outlined" color="inherit" href="/train/free" sx={{ mt: 2 }}>
+        <Button
+          variant="outlined"
+          color="inherit"
+          href={date ? `/train/free?date=${date}` : '/train/free'}
+          sx={{ mt: 2 }}
+        >
           Entrenamiento libre
         </Button>
       </Box>
     </Box>
+  )
+}
+
+export default function TrainPage() {
+  return (
+    <Suspense fallback={null}>
+      <TrainInner />
+    </Suspense>
   )
 }
