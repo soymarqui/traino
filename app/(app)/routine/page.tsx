@@ -16,6 +16,7 @@ import Snackbar from '@mui/material/Snackbar'
 import AddIcon from '@mui/icons-material/Add'
 import ChecklistIcon from '@mui/icons-material/Checklist'
 import { createClient } from '@/lib/supabase/client'
+import { duplicateRoutine } from '@/lib/routines'
 import { useRouter } from 'next/navigation'
 import SwipeableRow from './SwipeableRow'
 
@@ -23,17 +24,21 @@ type RoutineRow = {
   id: string
   name: string
   is_public: boolean
+  owner_id: string
   routine_exercises: { count: number }[]
+  handle?: string | null
 }
 
 export default function RoutinesPage() {
-  const [routines, setRoutines] = useState<RoutineRow[]>([])
+  const [owned, setOwned] = useState<RoutineRow[]>([])
+  const [subscribed, setSubscribed] = useState<RoutineRow[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
   const [name, setName] = useState('')
   const [creating, setCreating] = useState(false)
+  const [shareUrl, setShareUrl] = useState('')
   const [snack, setSnack] = useState('')
   const router = useRouter()
   const supabase = createClient()
@@ -47,18 +52,32 @@ export default function RoutinesPage() {
     const { data: { user } } = await supabase.auth.getUser()
     setUserId(user?.id ?? null)
 
-    const [{ data: routinesData }, { data: profile }] = await Promise.all([
-      supabase
-        .from('routines')
-        .select('id, name, is_public, routine_exercises(count)')
-        .order('created_at'),
-      user
-        ? supabase.from('profiles').select('active_routine_id').eq('id', user.id).maybeSingle()
-        : Promise.resolve({ data: null }),
+    const [{ data: ownedData }, { data: profile }, { data: subs }] = await Promise.all([
+      supabase.from('routines').select('id, name, is_public, owner_id, routine_exercises(count)').order('created_at'),
+      user ? supabase.from('profiles').select('active_routine_id').eq('id', user.id).maybeSingle() : Promise.resolve({ data: null }),
+      user ? supabase.from('routine_subscriptions').select('routine_id').eq('user_id', user.id) : Promise.resolve({ data: [] }),
     ])
 
-    setRoutines((routinesData as RoutineRow[]) || [])
+    setOwned((ownedData as RoutineRow[]) || [])
     setActiveId((profile as { active_routine_id: string | null } | null)?.active_routine_id ?? null)
+
+    // Rutinas suscritas (de otros, públicas) + handle del autor.
+    const subIds = (subs as { routine_id: string }[] | null)?.map((s) => s.routine_id) ?? []
+    if (subIds.length) {
+      const { data: subRoutines } = await supabase
+        .from('routines')
+        .select('id, name, is_public, owner_id, routine_exercises(count)')
+        .in('id', subIds)
+      const ownerIds = [...new Set((subRoutines || []).map((r: { owner_id: string }) => r.owner_id))]
+      const { data: profs } = await supabase.from('profiles').select('id, handle').in('id', ownerIds)
+      const handleById: Record<string, string | null> = {}
+      ;(profs || []).forEach((p: { id: string; handle: string | null }) => (handleById[p.id] = p.handle))
+      setSubscribed(
+        (subRoutines as RoutineRow[] || []).map((r) => ({ ...r, handle: handleById[r.owner_id] ?? null }))
+      )
+    } else {
+      setSubscribed([])
+    }
     setLoading(false)
   }
 
@@ -85,64 +104,85 @@ export default function RoutinesPage() {
     setSnack('Rutina activada')
   }
 
-  const duplicate = async (r: RoutineRow) => {
-    const { data: exs } = await supabase
-      .from('routine_exercises')
-      .select('*, sets:routine_exercise_sets(*)')
-      .eq('routine_id', r.id)
-
-    const { data: newR } = await supabase
-      .from('routines')
-      .insert({ owner_id: userId, name: `${r.name} (copia)` })
-      .select()
-      .single()
-    if (!newR) return
-
-    for (const ex of exs || []) {
-      const { data: newEx } = await supabase
-        .from('routine_exercises')
-        .insert({
-          routine_id: newR.id,
-          exercise_id: ex.exercise_id,
-          rest_seconds: ex.rest_seconds,
-          equipment: ex.equipment,
-          unilateral: ex.unilateral,
-          notes: ex.notes,
-          position: ex.position,
-        })
-        .select()
-        .single()
-      if (newEx && ex.sets?.length) {
-        await supabase.from('routine_exercise_sets').insert(
-          ex.sets.map((s: { set_number: number; reps: number | null; reps_max: number | null; duration_seconds: number | null; to_failure: boolean; weight: number | null }) => ({
-            routine_exercise_id: newEx.id,
-            set_number: s.set_number,
-            reps: s.reps,
-            reps_max: s.reps_max,
-            duration_seconds: s.duration_seconds,
-            to_failure: s.to_failure,
-            weight: s.weight,
-          }))
-        )
-      }
+  const share = async (r: RoutineRow) => {
+    if (!r.is_public) {
+      await supabase.from('routines').update({ is_public: true }).eq('id', r.id)
+      setOwned((prev) => prev.map((x) => (x.id === r.id ? { ...x, is_public: true } : x)))
     }
+    setShareUrl(`${window.location.origin}/r/${r.id}`)
+  }
+
+  const duplicate = async (id: string) => {
+    if (!userId) return
+    await duplicateRoutine(supabase, id, userId)
     setSnack('Rutina duplicada')
     load()
   }
 
-  // Activa primero, después el resto.
-  const ordered = [...routines].sort((a, b) => {
+  const unsubscribe = async (id: string) => {
+    setSubscribed((prev) => prev.filter((r) => r.id !== id))
+    await supabase.from('routine_subscriptions').delete().eq('user_id', userId ?? '').eq('routine_id', id)
+    setSnack('Suscripción quitada')
+  }
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setSnack('Link copiado')
+    } catch {
+      setSnack('Copiá el link manualmente')
+    }
+  }
+
+  const orderedOwned = [...owned].sort((a, b) => {
     if (a.id === activeId) return -1
     if (b.id === activeId) return 1
     return 0
   })
 
+  const renderRow = (r: RoutineRow, isSub: boolean) => {
+    const isActive = r.id === activeId
+    return (
+      <SwipeableRow
+        key={r.id}
+        onPress={() => router.push(isSub ? `/r/${r.id}` : `/routine/${r.id}`)}
+        leading={isActive ? undefined : { label: 'Activar', bg: '#C6F135', color: '#0A0A0A', onClick: () => activate(r.id) }}
+        trailing={
+          isSub
+            ? [
+                { label: 'Duplicar', bg: '#555', onClick: () => duplicate(r.id) },
+                { label: 'Quitar', bg: '#b00020', onClick: () => unsubscribe(r.id) },
+              ]
+            : [
+                { label: 'Compartir', bg: '#3a3a3a', onClick: () => share(r) },
+                { label: 'Editar', bg: '#3b82f6', onClick: () => router.push(`/routine/${r.id}`) },
+                { label: 'Duplicar', bg: '#555', onClick: () => duplicate(r.id) },
+              ]
+        }
+      >
+        <Card sx={{ border: '2px solid', borderColor: isActive ? 'primary.main' : 'divider' }}>
+          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ flex: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {r.name}
+                </Typography>
+                {isActive && <Chip label="Activa" size="small" color="primary" />}
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                {r.routine_exercises?.[0]?.count ?? 0} ejercicios
+                {isSub && r.handle ? ` · por @${r.handle}` : r.is_public && !isSub ? ' · Pública' : ''}
+              </Typography>
+            </Box>
+          </CardContent>
+        </Card>
+      </SwipeableRow>
+    )
+  }
+
   return (
     <Box sx={{ minHeight: '100vh', pb: 12 }}>
-      {/* Header */}
-      <Box
-        sx={{ px: 3, pt: 4, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-      >
+      <Box sx={{ px: 3, pt: 4, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
           Mis rutinas
         </Typography>
@@ -154,7 +194,7 @@ export default function RoutinesPage() {
       <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         {loading && <Typography color="text.secondary">Cargando...</Typography>}
 
-        {!loading && routines.length === 0 && (
+        {!loading && owned.length === 0 && subscribed.length === 0 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, pt: 8, textAlign: 'center' }}>
             <ChecklistIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
             <Typography color="text.secondary">Todavía no tenés rutinas. Creá la primera.</Typography>
@@ -164,45 +204,20 @@ export default function RoutinesPage() {
           </Box>
         )}
 
-        {!loading &&
-          ordered.map((r) => {
-            const isActive = r.id === activeId
-            return (
-              <SwipeableRow
-                key={r.id}
-                onPress={() => router.push(`/routine/${r.id}`)}
-                leading={
-                  isActive ? undefined : { label: 'Activar', bg: '#C6F135', color: '#0A0A0A', onClick: () => activate(r.id) }
-                }
-                trailing={[
-                  { label: 'Compartir', bg: '#3a3a3a', onClick: () => setSnack('Compartir: próximamente (con Amigos)') },
-                  { label: 'Editar', bg: '#3b82f6', onClick: () => router.push(`/routine/${r.id}`) },
-                  { label: 'Duplicar', bg: '#555', onClick: () => duplicate(r) },
-                ]}
-              >
-                <Card sx={{ border: '2px solid', borderColor: isActive ? 'primary.main' : 'divider' }}>
-                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                          {r.name}
-                        </Typography>
-                        {isActive && <Chip label="Activa" size="small" color="primary" />}
-                      </Box>
-                      <Typography variant="body2" color="text.secondary">
-                        {r.routine_exercises?.[0]?.count ?? 0} ejercicios ·{' '}
-                        {r.is_public ? 'Pública' : 'Privada'}
-                      </Typography>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </SwipeableRow>
-            )
-          })}
+        {!loading && orderedOwned.map((r) => renderRow(r, false))}
 
-        {!loading && routines.length > 0 && (
+        {!loading && subscribed.length > 0 && (
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, mt: 2 }}>
+              Suscritas
+            </Typography>
+            {subscribed.map((r) => renderRow(r, true))}
+          </>
+        )}
+
+        {!loading && (owned.length > 0 || subscribed.length > 0) && (
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
-            Deslizá una rutina: → para activarla, ← para compartir / editar / duplicar
+            Deslizá: → activar, ← más acciones
           </Typography>
         )}
       </Box>
@@ -228,6 +243,25 @@ export default function RoutinesPage() {
           </Button>
           <Button variant="contained" onClick={createRoutine} disabled={creating || !name.trim()}>
             {creating ? 'Creando...' : 'Crear'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Compartir rutina */}
+      <Dialog open={!!shareUrl} onClose={() => setShareUrl('')} fullWidth maxWidth="xs">
+        <DialogTitle>Compartir rutina</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Ya es pública. Mandá este link para que se suscriban:
+          </Typography>
+          <TextField fullWidth value={shareUrl} slotProps={{ input: { readOnly: true } }} />
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setShareUrl('')}>
+            Cerrar
+          </Button>
+          <Button variant="contained" onClick={copyLink}>
+            Copiar link
           </Button>
         </DialogActions>
       </Dialog>
