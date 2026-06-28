@@ -1,22 +1,42 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
+import AppBar from '@mui/material/AppBar'
+import Toolbar from '@mui/material/Toolbar'
+import Typography from '@mui/material/Typography'
+import IconButton from '@mui/material/IconButton'
+import Avatar from '@mui/material/Avatar'
+import Drawer from '@mui/material/Drawer'
+import List from '@mui/material/List'
+import ListItemButton from '@mui/material/ListItemButton'
+import ListItemIcon from '@mui/material/ListItemIcon'
+import ListItemText from '@mui/material/ListItemText'
+import Divider from '@mui/material/Divider'
 import Paper from '@mui/material/Paper'
 import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
+import MenuIcon from '@mui/icons-material/Menu'
 import HomeIcon from '@mui/icons-material/Home'
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
+import ChecklistIcon from '@mui/icons-material/Checklist'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
 import HistoryIcon from '@mui/icons-material/History'
-import ChecklistIcon from '@mui/icons-material/Checklist'
 import PersonIcon from '@mui/icons-material/Person'
+import GroupIcon from '@mui/icons-material/Group'
+import { createClient } from '@/lib/supabase/client'
 import { usePathname, useRouter } from 'next/navigation'
 
-const TABS = [
+// Acciones primarias, siempre visibles abajo.
+const BOTTOM_TABS = [
   { label: 'Inicio', value: '/dashboard', icon: <HomeIcon /> },
   { label: 'Entrenar', value: '/train', icon: <FitnessCenterIcon /> },
-  { label: 'Ejercicios', value: '/exercises', icon: <MenuBookIcon /> },
   { label: 'Rutina', value: '/routine', icon: <ChecklistIcon /> },
+]
+
+// Secciones secundarias, en el menú lateral (burger).
+const DRAWER_ITEMS = [
+  { label: 'Ejercicios', value: '/exercises', icon: <MenuBookIcon /> },
   { label: 'Historial', value: '/history', icon: <HistoryIcon /> },
   { label: 'Perfil', value: '/settings', icon: <PersonIcon /> },
 ]
@@ -28,18 +48,109 @@ export default function AppLayout({
 }) {
   const pathname = usePathname()
   const router = useRouter()
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [email, setEmail] = useState('')
+  const supabase = createClient()
 
-  // La tab activa es el prefijo de ruta más largo que matchea (para que
-  // /exercises/123 o /exercises/new resalten "Ejercicios").
-  const active =
-    TABS.map((t) => t.value)
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setEmail(user?.email || '')
+    })
+  }, [])
+
+  const go = (value: string) => {
+    setDrawerOpen(false)
+    router.push(value)
+  }
+
+  const activeBottom =
+    BOTTOM_TABS.map((t) => t.value)
       .filter((v) => pathname === v || pathname.startsWith(v + '/'))
       .sort((a, b) => b.length - a.length)[0] ?? false
 
+  const initial = email ? email[0].toUpperCase() : '?'
+
   return (
     <Box sx={{ minHeight: '100vh' }}>
+      {/* Barra superior */}
+      <AppBar
+        position="sticky"
+        elevation={0}
+        sx={{
+          bgcolor: 'background.default',
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Toolbar sx={{ gap: 1 }}>
+          <IconButton
+            edge="start"
+            onClick={() => setDrawerOpen(true)}
+            sx={{ color: 'text.primary' }}
+            aria-label="menú"
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main', flex: 1 }}>
+            Traino
+          </Typography>
+          <IconButton onClick={() => router.push('/settings')} sx={{ p: 0 }} aria-label="perfil">
+            <Avatar
+              sx={{
+                width: 32,
+                height: 32,
+                bgcolor: 'primary.main',
+                color: '#0A0A0A',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+              }}
+            >
+              {initial}
+            </Avatar>
+          </IconButton>
+        </Toolbar>
+      </AppBar>
+
+      {/* Menú lateral */}
+      <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+        <Box sx={{ width: 260, pt: 2 }} role="presentation">
+          <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main', px: 2 }}>
+            Traino
+          </Typography>
+          {email && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ px: 2, mb: 1, wordBreak: 'break-all' }}
+            >
+              {email}
+            </Typography>
+          )}
+          <Divider />
+          <List>
+            {DRAWER_ITEMS.map((item) => (
+              <ListItemButton
+                key={item.value}
+                selected={pathname === item.value || pathname.startsWith(item.value + '/')}
+                onClick={() => go(item.value)}
+              >
+                <ListItemIcon sx={{ color: 'text.secondary' }}>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.label} />
+              </ListItemButton>
+            ))}
+            <ListItemButton disabled>
+              <ListItemIcon sx={{ color: 'text.secondary' }}>
+                <GroupIcon />
+              </ListItemIcon>
+              <ListItemText primary="Amigos" secondary="Próximamente" />
+            </ListItemButton>
+          </List>
+        </Box>
+      </Drawer>
+
       {children}
 
+      {/* Navegación inferior */}
       <Paper
         elevation={0}
         sx={{
@@ -54,12 +165,12 @@ export default function AppLayout({
         }}
       >
         <BottomNavigation
-          value={active}
+          value={activeBottom}
           onChange={(_, value) => router.push(value)}
           showLabels
           sx={{ bgcolor: 'transparent', height: 64 }}
         >
-          {TABS.map((tab) => (
+          {BOTTOM_TABS.map((tab) => (
             <BottomNavigationAction
               key={tab.value}
               label={tab.label}

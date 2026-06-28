@@ -53,8 +53,8 @@ export default function DashboardPage() {
     <Box sx={{ minHeight: '100vh', pb: 10 }}>
       {/* Header */}
       <Box sx={{ px: 3, pt: 4, pb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
-          Traino
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
+          Hola 👋
         </Typography>
         <Typography variant="body2" color="text.secondary">
           {email}
