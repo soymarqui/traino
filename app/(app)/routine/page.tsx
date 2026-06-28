@@ -70,6 +70,9 @@ export default function RoutinesPage() {
       .insert({ owner_id: userId, name: name.trim() })
       .select()
       .single()
+    if (!error && data) {
+      await supabase.from('routine_days').insert({ routine_id: data.id, name: 'Día 1', position: 0 })
+    }
     setCreating(false)
     setCreateOpen(false)
     setName('')

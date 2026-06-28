@@ -83,9 +83,17 @@ export type Routine = {
   exercises?: RoutineExercise[]
 }
 
+export type RoutineDay = {
+  id: string
+  routine_id: string
+  name: string
+  position: number
+}
+
 export type RoutineExercise = {
   id: string
   routine_id: string
+  routine_day_id: string | null
   exercise_id: string
   rest_seconds: number | null
   equipment: Equipment | null

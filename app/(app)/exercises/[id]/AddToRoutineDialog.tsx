@@ -17,7 +17,7 @@ import Switch from '@mui/material/Switch'
 import CloseIcon from '@mui/icons-material/Close'
 import AddIcon from '@mui/icons-material/Add'
 import { createClient } from '@/lib/supabase/client'
-import { Equipment, Exercise, Routine } from '@/types/database'
+import { Equipment, Exercise, Routine, RoutineDay } from '@/types/database'
 
 const EQUIPMENT_OPTIONS: { value: Equipment; label: string }[] = [
   { value: 'barra', label: 'Con barra' },
@@ -48,6 +48,8 @@ export default function AddToRoutineDialog({
   const supabase = createClient()
   const [routines, setRoutines] = useState<Routine[]>([])
   const [routineId, setRoutineId] = useState('')
+  const [days, setDays] = useState<RoutineDay[]>([])
+  const [dayId, setDayId] = useState('')
   const [saving, setSaving] = useState(false)
   const [equipment, setEquipment] = useState<Equipment | ''>('')
   const [unilateral, setUnilateral] = useState(false)
@@ -69,6 +71,25 @@ export default function AddToRoutineDialog({
       })
   }, [open])
 
+  // Días de la rutina elegida.
+  useEffect(() => {
+    if (!routineId) {
+      setDays([])
+      setDayId('')
+      return
+    }
+    supabase
+      .from('routine_days')
+      .select('*')
+      .eq('routine_id', routineId)
+      .order('position')
+      .then(({ data }) => {
+        const list = (data as RoutineDay[]) || []
+        setDays(list)
+        setDayId(list[0]?.id || '')
+      })
+  }, [routineId])
+
   const updateSet = (i: number, patch: Partial<SetDraft>) =>
     setSets((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)))
   const addSet = () => setSets((prev) => [...prev, emptySet(exercise)])
@@ -76,18 +97,19 @@ export default function AddToRoutineDialog({
     setSets((prev) => prev.filter((_, idx) => idx !== i))
 
   const handleSave = async () => {
-    if (!routineId) return
+    if (!routineId || !dayId) return
     setSaving(true)
 
     const { count } = await supabase
       .from('routine_exercises')
       .select('id', { count: 'exact', head: true })
-      .eq('routine_id', routineId)
+      .eq('routine_day_id', dayId)
 
     const { data: re, error } = await supabase
       .from('routine_exercises')
       .insert({
         routine_id: routineId,
+        routine_day_id: dayId,
         exercise_id: exercise.id,
         rest_seconds: rest ? parseInt(rest) : null,
         equipment: equipment || null,
@@ -142,6 +164,22 @@ export default function AddToRoutineDialog({
             {routines.map((r) => (
               <MenuItem key={r.id} value={r.id}>
                 {r.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
+
+        {days.length > 0 && (
+          <TextField
+            label="Día"
+            select
+            value={dayId}
+            onChange={(e) => setDayId(e.target.value)}
+            fullWidth
+          >
+            {days.map((d) => (
+              <MenuItem key={d.id} value={d.id}>
+                {d.name}
               </MenuItem>
             ))}
           </TextField>
@@ -249,7 +287,7 @@ export default function AddToRoutineDialog({
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={saving || !routineId}
+          disabled={saving || !routineId || !dayId}
         >
           {saving ? 'Guardando...' : 'Agregar'}
         </Button>
