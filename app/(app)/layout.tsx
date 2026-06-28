@@ -31,10 +31,10 @@ import type { User } from '@supabase/supabase-js'
 
 // Acciones primarias, siempre visibles abajo.
 const BOTTOM_TABS = [
-  { label: 'Amigos', value: '/friends', icon: <GroupIcon /> },
   { label: 'Inicio', value: '/dashboard', icon: <HomeIcon /> },
-  { label: 'Rutina', value: '/routine', icon: <ChecklistIcon /> },
   { label: 'Entrenar', value: '/train', icon: <FitnessCenterIcon /> },
+  { label: 'Rutina', value: '/routine', icon: <ChecklistIcon /> },
+  { label: 'Amigos', value: '/friends', icon: <GroupIcon /> },
 ]
 
 // Secciones secundarias, en el menú lateral (burger).

@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# supabase personal access token (local only)
+.supabase_pat
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
