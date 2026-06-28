@@ -12,7 +12,10 @@ import TextField from '@mui/material/TextField'
 import Checkbox from '@mui/material/Checkbox'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import LinearProgress from '@mui/material/LinearProgress'
+import IconButton from '@mui/material/IconButton'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import { muscleLabel } from '@/lib/muscles'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
@@ -56,6 +59,7 @@ type ExerciseWithSets = {
   reps_max: number
   rest_seconds: number
   is_warmup: boolean
+  muscle?: { name: string; slug: string } | null
   sets: SetRow[]
 }
 
@@ -131,7 +135,7 @@ export default function WorkoutPage() {
 
     const { data: sets } = await supabase
       .from('sets')
-      .select('*, exercise:exercises(id, name, reps_min, reps_max, rest_seconds, is_warmup)')
+      .select('*, exercise:exercises(id, name, reps_min, reps_max, rest_seconds, is_warmup, muscle:muscles(name, slug))')
       .eq('workout_id', workoutId)
       .order('set_number')
 
@@ -509,15 +513,34 @@ export default function WorkoutPage() {
                 onClick={() => setExpandedId(expanded ? null : exercise.id)}
                 sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}
               >
-                <Typography variant="body1" sx={{ fontWeight: 700, flex: 1 }}>
-                  {exercise.is_warmup && '🔥 '}{exercise.name}
-                </Typography>
+                <Box sx={{ flex: 1 }}>
+                  {exercise.muscle?.name && (
+                    <Chip
+                      label={muscleLabel(exercise.muscle.slug, exercise.muscle.name)}
+                      size="small"
+                      sx={{ mb: 0.5, height: 20 }}
+                    />
+                  )}
+                  <Typography variant="body1" sx={{ fontWeight: 700 }}>
+                    {exercise.is_warmup && '🔥 '}{exercise.name}
+                  </Typography>
+                </Box>
                 {suggestions[exercise.id] != null && (
                   <Chip label={`Probá ${suggestions[exercise.id]} kg 💪`} size="small" color="primary" />
                 )}
                 <Typography variant="caption" color="text.secondary">
                   {done}/{total}
                 </Typography>
+                <IconButton
+                  size="small"
+                  aria-label="Ver ejercicio"
+                  onClick={(e: React.MouseEvent) => {
+                    e.stopPropagation()
+                    router.push(`/exercises/${exercise.id}`)
+                  }}
+                >
+                  <ChevronRightIcon />
+                </IconButton>
                 <ExpandMoreIcon
                   sx={{ color: 'text.secondary', transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
                 />
