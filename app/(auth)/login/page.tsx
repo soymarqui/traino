@@ -88,6 +88,12 @@ export default function LoginPage() {
           {loading ? 'Entrando...' : 'Entrar'}
         </Button>
 
+        <Typography variant="body2" sx={{ textAlign: 'center' }}>
+          <Link href="/forgot-password" style={{ color: '#888888' }}>
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </Typography>
+
       <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
           ¿No tenés cuenta?{' '}
           <Link href="/register" style={{ color: '#C6F135' }}>

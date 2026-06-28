@@ -5,12 +5,13 @@ import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
+import CardActionArea from '@mui/material/CardActionArea'
 import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
-import IconButton from '@mui/material/IconButton'
 import AddIcon from '@mui/icons-material/Add'
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
 import { createClient } from '@/lib/supabase/client'
+import { isAdmin } from '@/lib/admin'
 import { Exercise, Muscle } from '@/types/database'
 
 export default function ExercisesPage() {
@@ -18,10 +19,14 @@ export default function ExercisesPage() {
   const [muscles, setMuscles] = useState<Muscle[]>([])
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [admin, setAdmin] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
     fetchData()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setAdmin(isAdmin(user?.email))
+    })
   }, [])
 
   const fetchData = async () => {
@@ -63,14 +68,26 @@ export default function ExercisesPage() {
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
           Ejercicios
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          size="small"
-          href="/exercises/new"
-        >
-          Nuevo
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {admin && (
+            <Button
+              variant="outlined"
+              color="inherit"
+              size="small"
+              href="/exercises/requests"
+            >
+              Solicitudes
+            </Button>
+          )}
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            size="small"
+            href="/exercises/new"
+          >
+            {admin ? 'Agregar' : 'Solicitar'}
+          </Button>
+        </Box>
       </Box>
 
       {/* Filtro por músculo */}
@@ -122,30 +139,32 @@ export default function ExercisesPage() {
               No hay ejercicios todavía.
             </Typography>
             <Button variant="contained" href="/exercises/new">
-              Crear primer ejercicio
+              Solicitar ejercicio
             </Button>
           </Box>
         )}
 
         {filtered.map((exercise) => (
           <Card key={exercise.id}>
-            <CardContent
-              sx={{ display: 'flex', alignItems: 'center', gap: 2 }}
-            >
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {exercise.name}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {exercise.muscle?.name} · {exercise.suggested_sets} series · {exercise.reps_min}–{exercise.reps_max} reps
-                </Typography>
-              </Box>
-              <Chip
-                label={exercise.difficulty || 'N/A'}
-                size="small"
-                sx={{ opacity: 0.7 }}
-              />
-            </CardContent>
+            <CardActionArea href={`/exercises/${exercise.id}`}>
+              <CardContent
+                sx={{ display: 'flex', alignItems: 'center', gap: 2 }}
+              >
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                    {exercise.name}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {exercise.muscle?.name} · {exercise.suggested_sets} series · {exercise.reps_min}–{exercise.reps_max} reps
+                  </Typography>
+                </Box>
+                <Chip
+                  label={exercise.difficulty || 'N/A'}
+                  size="small"
+                  sx={{ opacity: 0.7 }}
+                />
+              </CardContent>
+            </CardActionArea>
           </Card>
         ))}
       </Box>

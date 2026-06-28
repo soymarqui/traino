@@ -6,7 +6,6 @@ export type Muscle = {
 
 export type Exercise = {
   id: string
-  user_id: string
   name: string
   muscle_id: string
   secondary_muscles: string[]
@@ -14,13 +13,24 @@ export type Exercise = {
   reps_min: number
   reps_max: number
   rest_seconds: number
-  equipment: string | null
+  equipment: string[] | null
+  unit: 'reps' | 'time'
   difficulty: 'beginner' | 'intermediate' | 'advanced' | null
   notes: string | null
   active: boolean
   video_url: string | null
   created_at: string
   muscle?: Muscle
+}
+
+export type ExerciseRequest = {
+  id: string
+  user_id: string
+  name: string
+  muscle_id: string
+  notes: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: string
 }
 
 export type MuscleGroup = {
@@ -30,6 +40,38 @@ export type MuscleGroup = {
   muscles: string[]
   is_default: boolean
   created_at: string
+}
+
+export type Equipment =
+  | 'maquina'
+  | 'mancuernas'
+  | 'barra'
+  | 'polea'
+  | 'peso_corporal'
+
+export type UserExerciseSet = {
+  id: string
+  user_exercise_id: string
+  set_number: number
+  reps: number | null
+  reps_max: number | null
+  duration_seconds: number | null
+  to_failure: boolean
+  weight: number | null
+}
+
+export type UserExercise = {
+  id: string
+  user_id: string
+  exercise_id: string
+  rest_seconds: number | null
+  equipment: Equipment | null
+  unilateral: boolean
+  notes: string | null
+  position: number
+  created_at: string
+  exercise?: Exercise
+  sets?: UserExerciseSet[]
 }
 
 export type Workout = {
