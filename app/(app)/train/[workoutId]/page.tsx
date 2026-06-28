@@ -36,6 +36,17 @@ const FEELINGS = [
 const GOOD = 4 // feeling >= GOOD se considera "cómodo"
 const STEP = 2.5 // sugerencia de aumento de peso
 
+const CELEBRATIONS = [
+  '¡Lo hiciste! 💪',
+  'Otro día ganado 🔥',
+  'Eso es consistencia.',
+  '¡Máquina! 🚀',
+  'Un paso más cerca.',
+  'Hoy te superaste.',
+  'Brutal. Seguí así.',
+  'El esfuerzo paga. 🏆',
+]
+
 function emoji(v: number | null) {
   return FEELINGS.find((f) => f.v === v)?.e ?? ''
 }
@@ -74,6 +85,9 @@ export default function WorkoutPage() {
   const [photoUrl, setPhotoUrl] = useState('')
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [showSummary, setShowSummary] = useState(false)
+  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const [finishedAt, setFinishedAt] = useState<number | null>(null)
+  const [celebrateMsg, setCelebrateMsg] = useState('')
   const photoRef = useRef<HTMLInputElement>(null)
   const [routineRef, setRoutineRef] = useState<
     Record<string, Record<number, { id: string; reps: number | null; weight: number | null }>>
@@ -102,10 +116,12 @@ export default function WorkoutPage() {
 
     const { data: workout } = await supabase
       .from('workouts')
-      .select('photo_url')
+      .select('photo_url, started_at')
       .eq('id', workoutId)
       .maybeSingle()
-    setPhotoUrl((workout as { photo_url: string | null } | null)?.photo_url ?? '')
+    const w = workout as { photo_url: string | null; started_at: string | null } | null
+    setPhotoUrl(w?.photo_url ?? '')
+    setStartedAt(w?.started_at ? new Date(w.started_at).getTime() : null)
 
     supabase.from('groups').select('id, name').then(({ data }) => setGroups(data || []))
 
@@ -329,6 +345,8 @@ export default function WorkoutPage() {
       .update({ finished_at: new Date().toISOString() })
       .eq('id', workoutId)
     setFinishing(false)
+    setFinishedAt(Date.now())
+    setCelebrateMsg(CELEBRATIONS[Math.floor(Math.random() * CELEBRATIONS.length)])
     setShowSummary(true)
   }
 
@@ -348,6 +366,66 @@ export default function WorkoutPage() {
       setPhotoUrl(url)
     }
     setUploadingPhoto(false)
+  }
+
+  const workoutStats = () => {
+    const durationMin =
+      startedAt && finishedAt ? Math.max(1, Math.round((finishedAt - startedAt) / 60000)) : null
+    const exDone = exercises.filter((e) => e.sets.some((s) => s.completed)).length
+    const volume = Math.round(
+      exercises.reduce(
+        (a, e) =>
+          a +
+          e.sets.reduce(
+            (b, s) => b + (s.completed ? (s.weight ?? 0) * (s.reps_actual ?? s.reps_target ?? 0) : 0),
+            0
+          ),
+        0
+      )
+    )
+    return { durationMin, exDone, volume }
+  }
+
+  const shareImage = async () => {
+    const { durationMin, exDone, volume } = workoutStats()
+    const canvas = document.createElement('canvas')
+    canvas.width = 1080
+    canvas.height = 1080
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.fillStyle = '#0A0A0A'
+    ctx.fillRect(0, 0, 1080, 1080)
+    ctx.fillStyle = '#C6F135'
+    ctx.font = 'bold 56px sans-serif'
+    ctx.fillText('TRAINO', 80, 150)
+    ctx.fillStyle = '#F5F5F5'
+    ctx.font = 'bold 84px sans-serif'
+    ctx.fillText(celebrateMsg || '¡Entrenamiento completo!', 80, 380)
+    ctx.font = '48px sans-serif'
+    ctx.fillStyle = '#888888'
+    const lines = [
+      durationMin != null ? `Duración: ${durationMin} min` : null,
+      `Ejercicios: ${exDone}`,
+      `Volumen: ${volume} kg`,
+    ].filter(Boolean) as string[]
+    lines.forEach((l, i) => {
+      ctx.fillStyle = '#F5F5F5'
+      ctx.fillText(l, 80, 620 + i * 90)
+    })
+    const blob: Blob | null = await new Promise((res) => canvas.toBlob(res, 'image/png'))
+    if (!blob) return
+    const file = new File([blob], 'traino.png', { type: 'image/png' })
+    const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean }
+    if (nav.canShare && nav.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Traino' })
+    } else {
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'traino.png'
+      a.click()
+      URL.revokeObjectURL(url)
+    }
   }
 
   const shareToGroups = async () => {
@@ -378,6 +456,17 @@ export default function WorkoutPage() {
   )
 
   if (showSummary) {
+    const { durationMin, exDone, volume } = workoutStats()
+    const StatBox = ({ value, label }: { value: string; label: string }) => (
+      <Box sx={{ flex: 1 }}>
+        <Typography variant="h5" sx={{ fontWeight: 800, color: 'primary.main' }}>
+          {value}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {label}
+        </Typography>
+      </Box>
+    )
     return (
       <Box
         sx={{
@@ -386,13 +475,16 @@ export default function WorkoutPage() {
         }}
       >
         <input ref={photoRef} type="file" accept="image/*" hidden onChange={handlePhoto} />
-        <CheckCircleIcon sx={{ fontSize: 64, color: 'primary.main' }} />
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          ¡Entrenamiento terminado!
+        <Typography sx={{ fontSize: 72, lineHeight: 1 }}>🏆</Typography>
+        <Typography variant="h4" sx={{ fontWeight: 800 }}>
+          {celebrateMsg || '¡Entrenamiento completo!'}
         </Typography>
-        <Typography color="text.secondary">
-          {completedSets}/{totalSets} series · {exercises.length} ejercicios
-        </Typography>
+
+        <Box sx={{ display: 'flex', gap: 1, width: '100%', maxWidth: 360, mt: 1 }}>
+          {durationMin != null && <StatBox value={`${durationMin}′`} label="duración" />}
+          <StatBox value={String(exDone)} label="ejercicios" />
+          <StatBox value={`${volume}`} label="kg volumen" />
+        </Box>
 
         {photoUrl && (
           <Box
@@ -414,6 +506,16 @@ export default function WorkoutPage() {
           {uploadingPhoto ? 'Subiendo...' : photoUrl ? 'Cambiar foto' : 'Agregar foto'}
         </Button>
 
+        <Button
+          variant="contained"
+          color="primary"
+          fullWidth
+          onClick={shareImage}
+          sx={{ mt: 1 }}
+        >
+          Compartir imagen
+        </Button>
+
         {groups.length > 0 && (
           <Button
             variant="outlined"
@@ -421,7 +523,6 @@ export default function WorkoutPage() {
             fullWidth
             onClick={() => setShareOpen(true)}
             disabled={shared}
-            sx={{ mt: 1 }}
           >
             {shared ? 'Compartido ✓' : 'Compartir a un grupo'}
           </Button>
