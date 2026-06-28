@@ -15,10 +15,12 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import StarIcon from '@mui/icons-material/Star'
+import StarBorderIcon from '@mui/icons-material/StarBorder'
 import { createClient } from '@/lib/supabase/client'
 import { isAdmin } from '@/lib/admin'
 import { equipmentLabel } from '@/lib/equipment'
-import { muscleLabel } from '@/lib/muscles'
+import { muscleLabel, muscleEmoji } from '@/lib/muscles'
 import { Exercise } from '@/types/database'
 import { useRouter, useParams } from 'next/navigation'
 import AddToRoutineDialog from './AddToRoutineDialog'
@@ -105,6 +107,8 @@ export default function ExerciseDetailPage() {
   const [admin, setAdmin] = useState(false)
   const [goal, setGoal] = useState<string | null>(null)
   const [observations, setObservations] = useState('')
+  const [userId, setUserId] = useState<string | null>(null)
+  const [isFav, setIsFav] = useState(false)
   const router = useRouter()
   const params = useParams()
   const exerciseId = params.id as string
@@ -116,6 +120,16 @@ export default function ExerciseDetailPage() {
       setAdmin(isAdmin(user?.email))
       setGoal((user?.user_metadata?.goal as string | undefined) ?? null)
       setObservations((user?.user_metadata?.observations as string | undefined) ?? '')
+      setUserId(user?.id ?? null)
+      if (user) {
+        supabase
+          .from('exercise_favorites')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('exercise_id', exerciseId)
+          .maybeSingle()
+          .then(({ data }) => setIsFav(!!data))
+      }
     })
   }, [])
 
@@ -131,25 +145,86 @@ export default function ExerciseDetailPage() {
     setLoading(false)
   }
 
+  const toggleFav = async () => {
+    if (!userId) return
+    if (isFav) {
+      setIsFav(false)
+      await supabase.from('exercise_favorites').delete().eq('user_id', userId).eq('exercise_id', exerciseId)
+    } else {
+      setIsFav(true)
+      await supabase.from('exercise_favorites').insert({ user_id: userId, exercise_id: exerciseId })
+    }
+  }
+
+  const videoId = exercise?.video_url ? getYouTubeId(exercise.video_url) : null
+
   return (
-    <Box sx={{ minHeight: '100vh', pb: 10 }}>
-      {/* Header */}
-      <Box sx={{ px: 3, pt: 4, pb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <IconButton onClick={() => router.back()}>
-          <ArrowBackIcon />
+    <Box sx={{ minHeight: '100vh' }}>
+      {/* Botones flotantes */}
+      <IconButton
+        onClick={() => router.back()}
+        sx={{
+          position: 'fixed', top: 12, left: 12, zIndex: 3,
+          bgcolor: 'rgba(0,0,0,0.5)', color: '#fff',
+          '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
+        }}
+      >
+        <ArrowBackIcon />
+      </IconButton>
+      {!loading && exercise && (
+        <IconButton
+          onClick={toggleFav}
+          aria-label="favorito"
+          sx={{
+            position: 'fixed', top: 12, right: 12, zIndex: 3,
+            bgcolor: 'rgba(0,0,0,0.5)', color: isFav ? 'primary.main' : '#fff',
+            '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
+          }}
+        >
+          {isFav ? <StarIcon /> : <StarBorderIcon />}
         </IconButton>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Ejercicio
-        </Typography>
+      )}
+
+      {/* Header fijo: video de fondo (o placeholder) */}
+      <Box
+        sx={{
+          position: 'fixed', top: 0, left: 0, right: 0, height: '44vh', zIndex: 0,
+          bgcolor: 'black', overflow: 'hidden',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        {videoId ? (
+          <Box
+            component="iframe"
+            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1&playsinline=1&rel=0`}
+            title={exercise?.name}
+            allow="autoplay; encrypted-media"
+            sx={{ width: '100%', height: '100%', border: 0, pointerEvents: 'none' }}
+          />
+        ) : (
+          <Typography sx={{ fontSize: 72, opacity: 0.6 }}>
+            {muscleEmoji(exercise?.muscle?.slug) || '🏋️'}
+          </Typography>
+        )}
       </Box>
 
-      <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Sheet que sube sobre el video al hacer scroll */}
+      <Box
+        sx={{
+          position: 'relative', zIndex: 1, mt: '40vh', minHeight: '64vh',
+          bgcolor: 'background.default',
+          borderTopLeftRadius: 24, borderTopRightRadius: 24,
+          boxShadow: '0 -8px 24px rgba(0,0,0,0.6)',
+          px: 3, pt: 2, pb: 12,
+          display: 'flex', flexDirection: 'column', gap: 3,
+        }}
+      >
+        <Box sx={{ width: 40, height: 4, borderRadius: 2, bgcolor: 'divider', alignSelf: 'center' }} />
+
         {loading && <Typography color="text.secondary">Cargando...</Typography>}
 
         {!loading && !exercise && (
-          <Typography color="text.secondary">
-            No se encontró el ejercicio.
-          </Typography>
+          <Typography color="text.secondary">No se encontró el ejercicio.</Typography>
         )}
 
         {!loading && exercise && (
@@ -185,7 +260,6 @@ export default function ExerciseDetailPage() {
               </Alert>
             )}
 
-            {/* Agregar a entrenamiento */}
             <Button
               variant="contained"
               size="large"
@@ -196,7 +270,6 @@ export default function ExerciseDetailPage() {
               Agregar a rutina
             </Button>
 
-            {/* Acciones de admin */}
             {admin && (
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button
@@ -220,49 +293,20 @@ export default function ExerciseDetailPage() {
               </Box>
             )}
 
-            {/* Video de YouTube */}
-            {exercise.video_url && getYouTubeId(exercise.video_url) && (
-              <Box
-                component="iframe"
-                src={`https://www.youtube.com/embed/${getYouTubeId(exercise.video_url)}`}
-                title={exercise.name}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                sx={{
-                  width: '100%',
-                  border: 0,
-                  borderRadius: 2,
-                  bgcolor: 'black',
-                  aspectRatio: '16 / 9',
-                }}
-              />
-            )}
-
-            {/* Datos */}
+            {/* Datos / requisitos */}
             <Card>
               <CardContent sx={{ py: 1 }}>
-                <DetailRow
-                  label="Músculo"
-                  value={exercise.muscle?.name ?? '—'}
-                />
+                <DetailRow label="Músculo" value={exercise.muscle?.name ?? '—'} />
                 <Divider />
                 <DetailRow
-                  label="Series sugeridas"
-                  value={String(exercise.suggested_sets)}
+                  label="Series · reps recomendadas"
+                  value={`${exercise.suggested_sets} × ${exercise.reps_min}–${exercise.reps_max}`}
                 />
                 <Divider />
-                <DetailRow
-                  label="Repeticiones"
-                  value={`${exercise.reps_min}–${exercise.reps_max}`}
-                />
+                <DetailRow label="Descanso" value={`${exercise.rest_seconds}s`} />
                 <Divider />
                 <DetailRow
-                  label="Descanso"
-                  value={`${exercise.rest_seconds}s`}
-                />
-                <Divider />
-                <DetailRow
-                  label="Equipamiento"
+                  label="Equipo necesario"
                   value={
                     exercise.equipment?.length
                       ? exercise.equipment.map(equipmentLabel).join(', ')
@@ -271,27 +315,21 @@ export default function ExerciseDetailPage() {
                 />
                 <Divider />
                 <DetailRow
-                  label="Dificultad"
-                  value={
-                    exercise.difficulty
-                      ? DIFFICULTY_LABELS[exercise.difficulty] ?? exercise.difficulty
-                      : '—'
-                  }
+                  label="Unidad"
+                  value={exercise.unit === 'time' ? 'Tiempo' : 'Repeticiones'}
                 />
               </CardContent>
             </Card>
 
-            {/* Notas */}
-            {exercise.notes && (
-              <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                  Notas
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
-                  {exercise.notes}
-                </Typography>
-              </Box>
-            )}
+            {/* Cómo hacerlo */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                Cómo hacerlo
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                {exercise.notes || 'Todavía no hay descripción para este ejercicio.'}
+              </Typography>
+            </Box>
           </>
         )}
       </Box>
