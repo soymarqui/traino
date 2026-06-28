@@ -18,6 +18,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import { muscleLabel } from '@/lib/muscles'
 import { unitShort } from '@/lib/units'
 import { useRestTimer } from '@/components/RestTimer'
+import WheelPicker from '@/components/WheelPicker'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
@@ -101,7 +102,7 @@ export default function WorkoutPage() {
   const [shareSel, setShareSel] = useState<string[]>([])
   const [shared, setShared] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [marking, setMarking] = useState<{ set: SetRow; exName: string; unitLabel: string } | null>(null)
+  const [marking, setMarking] = useState<{ set: SetRow; exName: string; unitLabel: string; unit: string } | null>(null)
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
   const [feeling, setFeeling] = useState(3)
@@ -244,7 +245,7 @@ export default function WorkoutPage() {
 
   const openMark = (set: SetRow, ex: ExerciseWithSets) => {
     const exId = ex.id
-    setMarking({ set, exName: ex.name, unitLabel: unitShort(ex.unit, ex.distance_unit) })
+    setMarking({ set, exName: ex.name, unitLabel: unitShort(ex.unit, ex.distance_unit), unit: ex.unit })
     setWeight(
       set.weight != null
         ? String(set.weight)
@@ -770,15 +771,26 @@ export default function WorkoutPage() {
           </Typography>
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextField
-              label="Peso (kg)"
-              type="number"
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-              fullWidth
-              autoFocus
-            />
+          <TextField
+            label="Peso (kg)"
+            type="number"
+            value={weight}
+            onChange={(e) => setWeight(e.target.value)}
+            fullWidth
+          />
+          {marking?.unit === 'reps' ? (
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                Reps
+              </Typography>
+              <WheelPicker
+                value={reps.trim() === '' ? 0 : Math.max(0, Math.min(60, parseInt(reps) || 0))}
+                onChange={(v) => setReps(String(v))}
+                min={0}
+                max={60}
+              />
+            </Box>
+          ) : (
             <TextField
               label={marking?.unitLabel ?? 'reps'}
               type="number"
@@ -786,7 +798,7 @@ export default function WorkoutPage() {
               onChange={(e) => setReps(e.target.value)}
               fullWidth
             />
-          </Box>
+          )}
           <Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               ¿Cómo te sentiste?
