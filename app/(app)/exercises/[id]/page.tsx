@@ -163,10 +163,12 @@ export default function ExerciseDetailPage() {
       {/* Botones flotantes */}
       <IconButton
         onClick={() => router.back()}
+        aria-label="Atrás"
         sx={{
           position: 'fixed', top: 12, left: 12, zIndex: 3,
-          bgcolor: 'rgba(0,0,0,0.5)', color: '#fff',
-          '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
+          bgcolor: 'rgba(0,0,0,0.6)', color: '#fff',
+          backdropFilter: 'blur(4px)',
+          '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' },
         }}
       >
         <ArrowBackIcon />
