@@ -9,6 +9,8 @@ import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import Slider from '@mui/material/Slider'
 import TextField from '@mui/material/TextField'
+import Checkbox from '@mui/material/Checkbox'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
@@ -67,6 +69,10 @@ export default function WorkoutPage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [showSummary, setShowSummary] = useState(false)
   const photoRef = useRef<HTMLInputElement>(null)
+  const [groups, setGroups] = useState<{ id: string; name: string }[]>([])
+  const [shareOpen, setShareOpen] = useState(false)
+  const [shareSel, setShareSel] = useState<string[]>([])
+  const [shared, setShared] = useState(false)
   const [marking, setMarking] = useState<{ set: SetRow; exName: string } | null>(null)
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
@@ -90,6 +96,8 @@ export default function WorkoutPage() {
       .eq('id', workoutId)
       .maybeSingle()
     setPhotoUrl((workout as { photo_url: string | null } | null)?.photo_url ?? '')
+
+    supabase.from('groups').select('id, name').then(({ data }) => setGroups(data || []))
 
     const { data: sets } = await supabase
       .from('sets')
@@ -291,6 +299,21 @@ export default function WorkoutPage() {
     setUploadingPhoto(false)
   }
 
+  const shareToGroups = async () => {
+    const summaryText = `${exercises.length} ejercicios · ${completedSets} series`
+    for (const gid of shareSel) {
+      await supabase.from('group_posts').insert({
+        group_id: gid,
+        user_id: userId,
+        workout_id: workoutId,
+        summary: summaryText,
+        photo_url: photoUrl || null,
+      })
+    }
+    setShareOpen(false)
+    setShared(true)
+  }
+
   const handleDelete = async () => {
     await supabase.from('sets').delete().eq('workout_id', workoutId)
     await supabase.from('workouts').delete().eq('id', workoutId)
@@ -340,9 +363,57 @@ export default function WorkoutPage() {
           {uploadingPhoto ? 'Subiendo...' : photoUrl ? 'Cambiar foto' : 'Agregar foto'}
         </Button>
 
+        {groups.length > 0 && (
+          <Button
+            variant="outlined"
+            color="inherit"
+            fullWidth
+            onClick={() => setShareOpen(true)}
+            disabled={shared}
+            sx={{ mt: 1 }}
+          >
+            {shared ? 'Compartido ✓' : 'Compartir a un grupo'}
+          </Button>
+        )}
+
         <Button variant="contained" size="large" fullWidth onClick={() => router.push('/history')} sx={{ mt: 2 }}>
           Ver historial
         </Button>
+
+        {/* Compartir a grupos */}
+        <Dialog open={shareOpen} onClose={() => setShareOpen(false)} fullWidth maxWidth="xs">
+          <DialogTitle>Compartir entrenamiento</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Elegí a qué grupos enviarlo:
+            </Typography>
+            {groups.map((g) => (
+              <FormControlLabel
+                key={g.id}
+                control={
+                  <Checkbox
+                    checked={shareSel.includes(g.id)}
+                    onChange={() =>
+                      setShareSel((prev) =>
+                        prev.includes(g.id) ? prev.filter((x) => x !== g.id) : [...prev, g.id]
+                      )
+                    }
+                  />
+                }
+                label={g.name}
+                sx={{ display: 'flex' }}
+              />
+            ))}
+          </DialogContent>
+          <DialogActions>
+            <Button color="inherit" onClick={() => setShareOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="contained" onClick={shareToGroups} disabled={shareSel.length === 0}>
+              Compartir
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     )
   }
