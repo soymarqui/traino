@@ -15,6 +15,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Snackbar from '@mui/material/Snackbar'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import GroupAddIcon from '@mui/icons-material/GroupAdd'
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useParams } from 'next/navigation'
 
@@ -34,6 +35,7 @@ export default function UserProfilePage() {
   const handle = (params.handle as string).replace(/^@/, '')
   const [profile, setProfile] = useState<Profile | null>(null)
   const [routines, setRoutines] = useState<{ id: string; name: string }[]>([])
+  const [challenges, setChallenges] = useState<{ id: string; name: string; objective: string | null; duration_days: number | null }[]>([])
   const [adminGroups, setAdminGroups] = useState<{ id: string; name: string }[]>([])
   const [memberOf, setMemberOf] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
@@ -64,6 +66,14 @@ export default function UserProfilePage() {
         .eq('visibility', 'public')
         .order('created_at')
       setRoutines((rts as { id: string; name: string }[]) || [])
+
+      const { data: chs } = await supabase
+        .from('challenges')
+        .select('id, name, objective, duration_days')
+        .eq('creator_id', (prof as Profile).id)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+      setChallenges((chs as { id: string; name: string; objective: string | null; duration_days: number | null }[]) || [])
     }
 
     if (user) {
@@ -180,6 +190,33 @@ export default function UserProfilePage() {
                 </Box>
               )}
             </Box>
+
+            {challenges.length > 0 && (
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  Desafíos
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {challenges.map((c) => (
+                    <Card key={c.id}>
+                      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1.5 }}>
+                        <EmojiEventsIcon sx={{ color: 'primary.main' }} />
+                        <Box>
+                          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                            {c.name}
+                          </Typography>
+                          {(c.objective || c.duration_days) && (
+                            <Typography variant="body2" color="text.secondary">
+                              {[c.objective, c.duration_days ? `${c.duration_days} días` : null].filter(Boolean).join(' · ')}
+                            </Typography>
+                          )}
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Box>
+              </Box>
+            )}
           </>
         )}
       </Box>

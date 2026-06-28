@@ -19,6 +19,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EditIcon from '@mui/icons-material/Edit'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import AddIcon from '@mui/icons-material/Add'
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useParams } from 'next/navigation'
 
@@ -26,6 +27,15 @@ type Profile = { id: string; handle: string | null; display_name: string | null;
 type Member = { user_id: string; role: string }
 type Post = { id: string; user_id: string; summary: string | null; photo_url: string | null; created_at: string }
 type EventRow = { id: string; title: string; description: string | null; count: number; mine: boolean }
+type ChallengeRow = {
+  id: string
+  name: string
+  objective: string | null
+  duration_days: number | null
+  status: string
+  count: number
+  mine: boolean
+}
 
 export default function GroupPage() {
   const params = useParams()
@@ -37,6 +47,7 @@ export default function GroupPage() {
   const [profiles, setProfiles] = useState<Record<string, Profile>>({})
   const [posts, setPosts] = useState<Post[]>([])
   const [events, setEvents] = useState<EventRow[]>([])
+  const [challenges, setChallenges] = useState<ChallengeRow[]>([])
   const [loading, setLoading] = useState(true)
   const [renameOpen, setRenameOpen] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -108,7 +119,54 @@ export default function GroupPage() {
     } else {
       setEvents([])
     }
+
+    // Desafíos asignados a este grupo.
+    const { data: chs } = await supabase
+      .from('challenges')
+      .select('id, name, objective, duration_days, status')
+      .eq('group_id', groupId)
+      .order('created_at', { ascending: false })
+    const chList = (chs as { id: string; name: string; objective: string | null; duration_days: number | null; status: string }[]) || []
+    if (chList.length) {
+      const { data: cparts } = await supabase
+        .from('challenge_participants')
+        .select('challenge_id, user_id, status')
+        .in('challenge_id', chList.map((c) => c.id))
+      const cpl = (cparts as { challenge_id: string; user_id: string; status: string }[]) || []
+      setChallenges(
+        chList.map((c) => ({
+          ...c,
+          count: cpl.filter((p) => p.challenge_id === c.id && p.status === 'accepted').length,
+          mine: cpl.some((p) => p.challenge_id === c.id && p.user_id === user?.id && p.status === 'accepted'),
+        }))
+      )
+    } else {
+      setChallenges([])
+    }
     setLoading(false)
+  }
+
+  const setChallengeStatus = async (id: string, status: 'active' | 'rejected') => {
+    setChallenges((prev) =>
+      status === 'rejected'
+        ? prev.filter((c) => c.id !== id)
+        : prev.map((c) => (c.id === id ? { ...c, status } : c))
+    )
+    await supabase.from('challenges').update({ status }).eq('id', id)
+  }
+
+  const toggleChallenge = async (ch: ChallengeRow) => {
+    if (!userId) return
+    setChallenges((prev) =>
+      prev.map((c) => (c.id === ch.id ? { ...c, mine: !c.mine, count: c.count + (c.mine ? -1 : 1) } : c))
+    )
+    if (ch.mine) {
+      await supabase.from('challenge_participants').delete().eq('challenge_id', ch.id).eq('user_id', userId)
+    } else {
+      await supabase
+        .from('challenge_participants')
+        .upsert({ challenge_id: ch.id, user_id: userId, status: 'accepted' }, { onConflict: 'challenge_id,user_id' })
+    }
   }
 
   const rename = async () => {
@@ -228,6 +286,53 @@ export default function GroupPage() {
                 </Card>
               ))}
             </Box>
+
+            {/* Desafíos */}
+            {challenges.length > 0 && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
+                  Desafíos
+                </Typography>
+                {challenges.map((c) => (
+                  <Card key={c.id}>
+                    <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <EmojiEventsIcon sx={{ color: 'primary.main' }} />
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                          {c.name}
+                          {c.status === 'pending' && <Chip label="Pendiente" size="small" sx={{ ml: 1, height: 18 }} />}
+                        </Typography>
+                        {(c.objective || c.duration_days) && (
+                          <Typography variant="body2" color="text.secondary">
+                            {[c.objective, c.duration_days ? `${c.duration_days} días` : null].filter(Boolean).join(' · ')}
+                          </Typography>
+                        )}
+                        <Typography variant="caption" color="text.secondary">{c.count} participando</Typography>
+                      </Box>
+                      {c.status === 'pending' && isAdmin ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          <Button size="small" variant="contained" onClick={() => setChallengeStatus(c.id, 'active')}>
+                            Aprobar
+                          </Button>
+                          <Button size="small" color="error" onClick={() => setChallengeStatus(c.id, 'rejected')}>
+                            Rechazar
+                          </Button>
+                        </Box>
+                      ) : c.status === 'active' ? (
+                        <Button
+                          size="small"
+                          variant={c.mine ? 'contained' : 'outlined'}
+                          color={c.mine ? 'primary' : 'inherit'}
+                          onClick={() => toggleChallenge(c)}
+                        >
+                          {c.mine ? 'Participás' : 'Sumarme'}
+                        </Button>
+                      ) : null}
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            )}
 
             {/* Feed */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>

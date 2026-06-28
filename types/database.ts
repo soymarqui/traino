@@ -36,6 +36,26 @@ export type ExerciseRequest = {
   created_at: string
 }
 
+export type Challenge = {
+  id: string
+  creator_id: string
+  name: string
+  description: string | null
+  duration_days: number | null
+  objective: string | null
+  group_id: string | null
+  status: 'pending' | 'active' | 'rejected'
+  created_at: string
+}
+
+export type ChallengeParticipant = {
+  id: string
+  challenge_id: string
+  user_id: string
+  status: 'invited' | 'accepted' | 'declined'
+  created_at: string
+}
+
 export type MuscleGroup = {
   id: string
   user_id: string
