@@ -23,7 +23,7 @@ import LinkOffIcon from '@mui/icons-material/LinkOff'
 import { createClient } from '@/lib/supabase/client'
 import { duplicateRoutine } from '@/lib/routines'
 import { useRouter } from 'next/navigation'
-import SwipeableRow from './SwipeableRow'
+import SwipeableRow from '@/components/SwipeableRow'
 
 type RoutineRow = {
   id: string
