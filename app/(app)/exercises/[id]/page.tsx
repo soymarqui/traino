@@ -17,6 +17,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import StarIcon from '@mui/icons-material/Star'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { createClient } from '@/lib/supabase/client'
 import { isAdmin } from '@/lib/admin'
 import { equipmentLabel } from '@/lib/equipment'
@@ -109,6 +110,7 @@ export default function ExerciseDetailPage() {
   const [observations, setObservations] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
   const [isFav, setIsFav] = useState(false)
+  const [inActiveRoutine, setInActiveRoutine] = useState(false)
   const router = useRouter()
   const params = useParams()
   const exerciseId = params.id as string
@@ -129,6 +131,24 @@ export default function ExerciseDetailPage() {
           .eq('exercise_id', exerciseId)
           .maybeSingle()
           .then(({ data }) => setIsFav(!!data))
+
+        // ¿Ya está en la rutina activa?
+        supabase
+          .from('profiles')
+          .select('active_routine_id')
+          .eq('id', user.id)
+          .maybeSingle()
+          .then(({ data: prof }) => {
+            const rid = (prof as { active_routine_id: string | null } | null)?.active_routine_id
+            if (!rid) return
+            supabase
+              .from('routine_exercises')
+              .select('id')
+              .eq('routine_id', rid)
+              .eq('exercise_id', exerciseId)
+              .maybeSingle()
+              .then(({ data }) => setInActiveRoutine(!!data))
+          })
       }
     })
   }, [])
@@ -253,6 +273,9 @@ export default function ExerciseDetailPage() {
                 {alignsWithGoal(goal, exercise) && (
                   <Chip label="✅ Se alinea con tu objetivo" size="small" color="success" />
                 )}
+                {inActiveRoutine && (
+                  <Chip label="✓ En tu rutina activa" size="small" color="success" />
+                )}
               </Box>
             </Box>
 
@@ -263,13 +286,14 @@ export default function ExerciseDetailPage() {
             )}
 
             <Button
-              variant="contained"
+              variant={inActiveRoutine ? 'outlined' : 'contained'}
+              color={inActiveRoutine ? 'success' : 'primary'}
               size="large"
               fullWidth
-              startIcon={<AddIcon />}
+              startIcon={inActiveRoutine ? <CheckCircleIcon /> : <AddIcon />}
               onClick={() => setDialogOpen(true)}
             >
-              Agregar a rutina
+              {inActiveRoutine ? 'En tu rutina activa · agregar a otra' : 'Agregar a rutina'}
             </Button>
 
             {admin && (
