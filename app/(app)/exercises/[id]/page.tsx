@@ -296,32 +296,33 @@ export default function ExerciseDetailPage() {
             )}
 
             {/* Datos / requisitos */}
-            <Card>
-              <CardContent sx={{ py: 1 }}>
-                <DetailRow label="Músculo" value={exercise.muscle?.name ?? '—'} />
-                <Divider />
-                <DetailRow
-                  label="Series · reps recomendadas"
-                  value={`${exercise.suggested_sets} × ${exercise.reps_min}–${exercise.reps_max}`}
-                />
-                <Divider />
-                <DetailRow label="Descanso" value={`${exercise.rest_seconds}s`} />
-                <Divider />
-                <DetailRow
-                  label="Equipo necesario"
-                  value={
-                    exercise.equipment?.length
-                      ? exercise.equipment.map(equipmentLabel).join(', ')
-                      : '—'
-                  }
-                />
-                <Divider />
-                <DetailRow
-                  label="Unidad"
-                  value={exercise.unit === 'time' ? 'Tiempo' : 'Repeticiones'}
-                />
-              </CardContent>
-            </Card>
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Estos valores son una <b>sugerencia</b>. Los confirmás o ajustás
+                cuando agregás el ejercicio a tu rutina.
+              </Typography>
+              <Card>
+                <CardContent sx={{ py: 1 }}>
+                  <DetailRow label="Músculo" value={exercise.muscle?.name ?? '—'} />
+                  <Divider />
+                  <DetailRow
+                    label="Series sugeridas"
+                    value={`${exercise.suggested_sets} × ${exercise.reps_min}–${exercise.reps_max} ${exercise.unit === 'time' ? 'seg' : 'reps'}`}
+                  />
+                  <Divider />
+                  <DetailRow label="Descanso sugerido" value={`${exercise.rest_seconds}s`} />
+                  <Divider />
+                  <DetailRow
+                    label="Equipo necesario"
+                    value={
+                      exercise.equipment?.length
+                        ? exercise.equipment.map(equipmentLabel).join(', ')
+                        : '—'
+                    }
+                  />
+                </CardContent>
+              </Card>
+            </Box>
 
             {/* Cómo hacerlo */}
             <Box>
