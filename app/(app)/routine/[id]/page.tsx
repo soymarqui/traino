@@ -51,6 +51,8 @@ export default function RoutineDetailPage() {
   const [days, setDays] = useState<RoutineDay[]>([])
   const [items, setItems] = useState<RoutineExercise[]>([])
   const [loading, setLoading] = useState(true)
+  const [saveOpen, setSaveOpen] = useState(false)
+  const [incompleteNames, setIncompleteNames] = useState<string[]>([])
   const [renameOpen, setRenameOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [deleteDayId, setDeleteDayId] = useState<string | null>(null)
@@ -94,6 +96,26 @@ export default function RoutineDetailPage() {
   const deleteRoutine = async () => {
     await supabase.from('routines').delete().eq('id', routineId)
     router.push('/routine')
+  }
+
+  const saveRoutine = () => {
+    // Validar: cada ejercicio con descanso y al menos una serie con valor (reps/tiempo/al fallo).
+    const incomplete = items
+      .filter((it) => {
+        const noRest = it.rest_seconds == null
+        const sets = it.sets ?? []
+        const noValue =
+          sets.length === 0 ||
+          sets.every((s) => s.reps == null && s.duration_seconds == null && !s.to_failure)
+        return noRest || noValue
+      })
+      .map((it) => it.exercise?.name ?? 'Ejercicio')
+    if (incomplete.length) {
+      setIncompleteNames(incomplete)
+      setSaveOpen(true)
+    } else {
+      router.push('/routine')
+    }
   }
 
   const addDay = async () => {
@@ -236,12 +258,39 @@ export default function RoutineDetailPage() {
               Agregar día
             </Button>
 
+            <Button variant="contained" size="large" onClick={saveRoutine} sx={{ mt: 1 }}>
+              Guardar rutina
+            </Button>
+
             <Button color="error" onClick={deleteRoutine} sx={{ mt: 1 }}>
               Eliminar rutina
             </Button>
           </>
         )}
       </Box>
+
+      {/* Validación al guardar */}
+      <Dialog open={saveOpen} onClose={() => setSaveOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Ejercicios incompletos</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Estos ejercicios no tienen reps o descanso seteados:
+          </Typography>
+          {incompleteNames.map((n, i) => (
+            <Typography key={i} variant="body2" sx={{ fontWeight: 600 }}>
+              · {n}
+            </Typography>
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setSaveOpen(false)}>
+            Completar
+          </Button>
+          <Button color="error" onClick={() => router.push('/routine')}>
+            Guardar igualmente
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Renombrar rutina */}
       <Dialog open={renameOpen} onClose={() => setRenameOpen(false)} fullWidth maxWidth="xs">

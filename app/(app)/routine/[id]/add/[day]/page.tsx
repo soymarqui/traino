@@ -7,6 +7,7 @@ import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
 import Checkbox from '@mui/material/Checkbox'
+import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
@@ -22,8 +23,9 @@ export default function AddExercisesPage() {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [muscles, setMuscles] = useState<Muscle[]>([])
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null)
-  const [inDay, setInDay] = useState<Record<string, string>>({}) // exercise_id -> routine_exercise id
-  const [busy, setBusy] = useState<string | null>(null)
+  const [inDay, setInDay] = useState<Record<string, string>>({}) // exercise_id -> routine_exercise id (estado inicial)
+  const [selected, setSelected] = useState<string[]>([]) // selección de trabajo (checkmarks)
+  const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const supabase = createClient()
@@ -44,25 +46,28 @@ export default function AddExercisesPage() {
     const map: Record<string, string> = {}
     ;(re || []).forEach((r: { id: string; exercise_id: string }) => (map[r.exercise_id] = r.id))
     setInDay(map)
+    setSelected(Object.keys(map))
     setLoading(false)
   }
 
-  const toggle = async (ex: Exercise) => {
-    if (busy) return
-    setBusy(ex.id)
-    if (inDay[ex.id]) {
-      const reId = inDay[ex.id]
-      setInDay((prev) => {
-        const n = { ...prev }
-        delete n[ex.id]
-        return n
-      })
+  const toggle = (id: string) =>
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+
+  // Aplica la selección: agrega los nuevos, quita los destildados, y va a la rutina.
+  const confirm = async () => {
+    setSaving(true)
+    const toAdd = exercises.filter((e) => selected.includes(e.id) && !inDay[e.id])
+    const toRemove = Object.entries(inDay).filter(([exId]) => !selected.includes(exId))
+
+    for (const [, reId] of toRemove) {
       await supabase.from('routine_exercises').delete().eq('id', reId)
-    } else {
-      const { count } = await supabase
-        .from('routine_exercises')
-        .select('id', { count: 'exact', head: true })
-        .eq('routine_day_id', dayId)
+    }
+    let { count } = await supabase
+      .from('routine_exercises')
+      .select('id', { count: 'exact', head: true })
+      .eq('routine_day_id', dayId)
+    let pos = count ?? 0
+    for (const ex of toAdd) {
       const { data: re } = await supabase
         .from('routine_exercises')
         .insert({
@@ -70,7 +75,7 @@ export default function AddExercisesPage() {
           routine_day_id: dayId,
           exercise_id: ex.id,
           rest_seconds: ex.rest_seconds,
-          position: count ?? 0,
+          position: pos++,
         })
         .select()
         .single()
@@ -82,13 +87,15 @@ export default function AddExercisesPage() {
             reps: ex.reps_min,
           }))
         )
-        setInDay((prev) => ({ ...prev, [ex.id]: re.id }))
       }
     }
-    setBusy(null)
+    router.push(`/routine/${routineId}`)
   }
 
   const filtered = selectedMuscle ? exercises.filter((e) => e.muscle_id === selectedMuscle) : exercises
+  const dirty =
+    selected.length !== Object.keys(inDay).length ||
+    selected.some((id) => !inDay[id])
 
   return (
     <Box sx={{ minHeight: '100vh', pb: 12 }}>
@@ -124,11 +131,11 @@ export default function AddExercisesPage() {
 
         {!loading &&
           filtered.map((ex) => {
-            const checked = !!inDay[ex.id]
+            const checked = selected.includes(ex.id)
             return (
               <Card key={ex.id} sx={{ borderColor: checked ? 'primary.main' : 'divider' }}>
                 <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1, py: '8px !important' }}>
-                  <Checkbox checked={checked} onChange={() => toggle(ex)} disabled={busy === ex.id} sx={{ p: 0.5 }} />
+                  <Checkbox checked={checked} onChange={() => toggle(ex.id)} sx={{ p: 0.5 }} />
                   <Box sx={{ flex: 1, cursor: 'pointer' }} onClick={() => router.push(`/exercises/${ex.id}`)}>
                     <Typography variant="body1" sx={{ fontWeight: 600 }}>
                       {ex.name}
@@ -144,6 +151,12 @@ export default function AddExercisesPage() {
               </Card>
             )
           })}
+      </Box>
+
+      <Box sx={{ position: 'fixed', bottom: '76px', left: '16px', right: '16px', zIndex: 11 }}>
+        <Button variant="contained" size="large" fullWidth onClick={confirm} disabled={saving || !dirty}>
+          {saving ? 'Guardando...' : `Agregar a rutina (${selected.length})`}
+        </Button>
       </Box>
     </Box>
   )
