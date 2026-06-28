@@ -25,6 +25,18 @@ const GOALS = [
   { value: 'otro', label: 'Otro' },
 ]
 
+const GENDERS = [
+  { value: 'masculino', label: 'Masculino' },
+  { value: 'femenino', label: 'Femenino' },
+  { value: 'no_binarie', label: 'No binarie' },
+]
+
+const IDENTITIES = [
+  { value: 'gymbro', label: 'GymBro' },
+  { value: 'gymsis', label: 'GymSis' },
+  { value: 'gympal', label: 'GymPal' },
+]
+
 export default function SettingsPage() {
   const [email, setEmail] = useState('')
   const [admin, setAdmin] = useState(false)
@@ -44,6 +56,8 @@ export default function SettingsPage() {
     height: '',
     weight: '',
     goal: '',
+    gender: '',
+    identity: '',
     observations: '',
     bio: '',
   })
@@ -61,14 +75,16 @@ export default function SettingsPage() {
 
       let handle = ''
       let bio = ''
+      let identity = ''
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('handle, bio')
+          .select('handle, bio, identity')
           .eq('id', user.id)
           .maybeSingle()
         handle = profile?.handle ?? ''
         bio = profile?.bio ?? ''
+        identity = profile?.identity ?? ''
       }
 
       setForm({
@@ -78,6 +94,8 @@ export default function SettingsPage() {
         height: m.height_cm != null ? String(m.height_cm) : '',
         weight: m.weight_kg != null ? String(m.weight_kg) : '',
         goal: m.goal ?? '',
+        gender: m.gender ?? '',
+        identity,
         observations: m.observations ?? '',
         bio,
       })
@@ -142,6 +160,7 @@ export default function SettingsPage() {
         height_cm: num(form.height),
         weight_kg: num(form.weight),
         goal: form.goal || null,
+        gender: form.gender || null,
         observations: form.observations.trim() || null,
       },
     })
@@ -154,6 +173,7 @@ export default function SettingsPage() {
         display_name: form.name.trim(),
         avatar_url: avatar || null,
         bio: form.bio.trim() || null,
+        identity: form.identity || null,
       })
 
     setSaving(false)
@@ -291,6 +311,37 @@ export default function SettingsPage() {
           >
             <MenuItem value="">Sin especificar</MenuItem>
             {GOALS.map((g) => (
+              <MenuItem key={g.value} value={g.value}>
+                {g.label}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <TextField
+            label="Género"
+            value={form.gender}
+            onChange={(e) => set('gender', e.target.value)}
+            fullWidth
+            select
+          >
+            <MenuItem value="">Prefiero no decir</MenuItem>
+            {GENDERS.map((g) => (
+              <MenuItem key={g.value} value={g.value}>
+                {g.label}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <TextField
+            label="Identidad"
+            value={form.identity}
+            onChange={(e) => set('identity', e.target.value)}
+            fullWidth
+            select
+            helperText="Cómo te ven en la comunidad"
+          >
+            <MenuItem value="">Sin especificar</MenuItem>
+            {IDENTITIES.map((g) => (
               <MenuItem key={g.value} value={g.value}>
                 {g.label}
               </MenuItem>

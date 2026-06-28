@@ -38,7 +38,7 @@ export default function PublicRoutinePage() {
   const params = useParams()
   const routineId = params.id as string
   const [routine, setRoutine] = useState<Routine | null>(null)
-  const [owner, setOwner] = useState<{ handle: string | null; display_name: string | null } | null>(null)
+  const [owner, setOwner] = useState<{ handle: string | null; display_name: string | null; identity: string | null } | null>(null)
   const [days, setDays] = useState<RoutineDay[]>([])
   const [items, setItems] = useState<RoutineExercise[]>([])
   const [userId, setUserId] = useState<string | null>(null)
@@ -65,7 +65,7 @@ export default function PublicRoutinePage() {
     setRoutine(r as Routine)
 
     const [{ data: prof }, { data: d }, { data: ex }, { data: sub }] = await Promise.all([
-      supabase.from('profiles').select('handle, display_name').eq('id', (r as Routine).owner_id).maybeSingle(),
+      supabase.from('profiles').select('handle, display_name, identity').eq('id', (r as Routine).owner_id).maybeSingle(),
       supabase.from('routine_days').select('*').eq('routine_id', routineId).order('position'),
       supabase
         .from('routine_exercises')
@@ -76,7 +76,7 @@ export default function PublicRoutinePage() {
         ? supabase.from('routine_subscriptions').select('id').eq('user_id', user.id).eq('routine_id', routineId).maybeSingle()
         : Promise.resolve({ data: null }),
     ])
-    setOwner(prof as { handle: string | null; display_name: string | null } | null)
+    setOwner(prof as { handle: string | null; display_name: string | null; identity: string | null } | null)
     setDays((d as RoutineDay[]) || [])
     setItems((ex as RoutineExercise[]) || [])
     setSubscribed(!!sub)
@@ -123,9 +123,19 @@ export default function PublicRoutinePage() {
                 {routine.name}
               </Typography>
               {owner?.handle && (
-                <Typography variant="body2" color="text.secondary">
-                  por @{owner.handle}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    por @{owner.handle}
+                  </Typography>
+                  {owner.identity && (
+                    <Chip
+                      label={{ gymbro: 'GymBro', gymsis: 'GymSis', gympal: 'GymPal' }[owner.identity] ?? owner.identity}
+                      size="small"
+                      color="primary"
+                      sx={{ height: 20 }}
+                    />
+                  )}
+                </Box>
               )}
             </Box>
 
