@@ -15,6 +15,11 @@ import TextField from '@mui/material/TextField'
 import Snackbar from '@mui/material/Snackbar'
 import AddIcon from '@mui/icons-material/Add'
 import ChecklistIcon from '@mui/icons-material/Checklist'
+import StarIcon from '@mui/icons-material/Star'
+import ShareIcon from '@mui/icons-material/Share'
+import EditIcon from '@mui/icons-material/Edit'
+import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import LinkOffIcon from '@mui/icons-material/LinkOff'
 import { createClient } from '@/lib/supabase/client'
 import { duplicateRoutine } from '@/lib/routines'
 import { useRouter } from 'next/navigation'
@@ -146,17 +151,27 @@ export default function RoutinesPage() {
       <SwipeableRow
         key={r.id}
         onPress={() => router.push(isSub ? `/r/${r.id}` : `/routine/${r.id}`)}
-        leading={isActive ? undefined : { label: 'Activar', bg: '#C6F135', color: '#0A0A0A', onClick: () => activate(r.id) }}
+        leading={
+          isActive
+            ? undefined
+            : {
+                label: 'Activar',
+                bg: '#C6F135',
+                color: '#0A0A0A',
+                icon: <StarIcon fontSize="small" />,
+                onClick: () => activate(r.id),
+              }
+        }
         trailing={
           isSub
             ? [
-                { label: 'Duplicar', bg: '#555', onClick: () => duplicate(r.id) },
-                { label: 'Quitar', bg: '#b00020', onClick: () => unsubscribe(r.id) },
+                { label: 'Duplicar', bg: '#555', icon: <ContentCopyIcon fontSize="small" />, onClick: () => duplicate(r.id) },
+                { label: 'Quitar', bg: '#b00020', icon: <LinkOffIcon fontSize="small" />, onClick: () => unsubscribe(r.id) },
               ]
             : [
-                { label: 'Compartir', bg: '#3a3a3a', onClick: () => share(r) },
-                { label: 'Editar', bg: '#3b82f6', onClick: () => router.push(`/routine/${r.id}`) },
-                { label: 'Duplicar', bg: '#555', onClick: () => duplicate(r.id) },
+                { label: 'Compartir', bg: '#3a3a3a', icon: <ShareIcon fontSize="small" />, onClick: () => share(r) },
+                { label: 'Editar', bg: '#3b82f6', icon: <EditIcon fontSize="small" />, onClick: () => router.push(`/routine/${r.id}`) },
+                { label: 'Duplicar', bg: '#555', icon: <ContentCopyIcon fontSize="small" />, onClick: () => duplicate(r.id) },
               ]
         }
       >

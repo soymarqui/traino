@@ -7,6 +7,7 @@ export type SwipeAction = {
   label: string
   bg: string
   color?: string
+  icon?: React.ReactNode
   onClick: () => void
 }
 
@@ -82,15 +83,18 @@ export default function SwipeableRow({
             bottom: 0,
             width: leadW,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
+            gap: 0.25,
             bgcolor: leading.bg,
             color: leading.color ?? '#fff',
             fontWeight: 700,
-            fontSize: '0.8rem',
+            fontSize: '0.7rem',
             cursor: 'pointer',
           }}
         >
+          {leading.icon}
           {leading.label}
         </Box>
       )}
@@ -105,15 +109,18 @@ export default function SwipeableRow({
               sx={{
                 width: ACTION_W,
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
+                gap: 0.25,
                 bgcolor: a.bg,
                 color: a.color ?? '#fff',
                 fontWeight: 700,
-                fontSize: '0.8rem',
+                fontSize: '0.7rem',
                 cursor: 'pointer',
               }}
             >
+              {a.icon}
               {a.label}
             </Box>
           ))}
