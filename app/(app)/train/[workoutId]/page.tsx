@@ -62,6 +62,7 @@ export default function WorkoutPage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [marking, setMarking] = useState<{ set: SetRow; exName: string } | null>(null)
   const [weight, setWeight] = useState('')
+  const [reps, setReps] = useState('')
   const [feeling, setFeeling] = useState(3)
   const router = useRouter()
   const params = useParams()
@@ -168,27 +169,79 @@ export default function WorkoutPage() {
         : ''
     )
     setFeeling(set.feeling ?? 3)
+    setReps(set.reps_actual != null ? String(set.reps_actual) : set.reps_target != null ? String(set.reps_target) : '')
   }
 
   const saveMark = async () => {
     if (!marking) return
     const setId = marking.set.id
     const w = weight.trim() === '' ? null : parseFloat(weight)
+    const r = reps.trim() === '' ? null : parseInt(reps)
     setExercises((prev) =>
       prev.map((ex) => ({
         ...ex,
         sets: ex.sets.map((s) =>
-          s.id === setId
-            ? { ...s, weight: w, feeling, completed: true, reps_actual: s.reps_target }
-            : s
+          s.id === setId ? { ...s, weight: w, feeling, completed: true, reps_actual: r } : s
         ),
       }))
     )
     setMarking(null)
     await supabase
       .from('sets')
-      .update({ weight: w, feeling, completed: true, reps_actual: marking.set.reps_target })
+      .update({ weight: w, feeling, completed: true, reps_actual: r })
       .eq('id', setId)
+  }
+
+  const deleteSet = async () => {
+    if (!marking) return
+    const setId = marking.set.id
+    setExercises((prev) =>
+      prev.map((ex) => ({ ...ex, sets: ex.sets.filter((s) => s.id !== setId) }))
+    )
+    setMarking(null)
+    await supabase.from('sets').delete().eq('id', setId)
+  }
+
+  const addSet = async (ex: ExerciseWithSets) => {
+    const nextNumber = ex.sets.reduce((m, s) => Math.max(m, s.set_number), 0) + 1
+    const last = ex.sets[ex.sets.length - 1]
+    const { data } = await supabase
+      .from('sets')
+      .insert({
+        workout_id: workoutId,
+        exercise_id: ex.id,
+        set_number: nextNumber,
+        reps_target: last?.reps_target ?? null,
+        rest_seconds: last?.rest_seconds ?? null,
+        completed: false,
+      })
+      .select()
+      .single()
+    if (data) {
+      setExercises((prev) =>
+        prev.map((e) =>
+          e.id === ex.id
+            ? {
+                ...e,
+                sets: [
+                  ...e.sets,
+                  {
+                    id: data.id,
+                    exercise_id: ex.id,
+                    set_number: nextNumber,
+                    weight: null,
+                    reps_target: last?.reps_target ?? null,
+                    reps_actual: null,
+                    completed: false,
+                    feeling: null,
+                    rest_seconds: last?.rest_seconds ?? null,
+                  },
+                ],
+              }
+            : e
+        )
+      )
+    }
   }
 
   const handleFinish = async () => {
@@ -283,6 +336,9 @@ export default function WorkoutPage() {
                   </Box>
                 ))}
               </Box>
+              <Button size="small" onClick={() => addSet(exercise)} sx={{ mt: 1 }}>
+                + Agregar serie
+              </Button>
             </CardContent>
           </Card>
         ))}
@@ -308,14 +364,23 @@ export default function WorkoutPage() {
           </Typography>
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
-          <TextField
-            label="Peso (kg)"
-            type="number"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            fullWidth
-            autoFocus
-          />
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              label="Peso (kg)"
+              type="number"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              fullWidth
+              autoFocus
+            />
+            <TextField
+              label="Reps"
+              type="number"
+              value={reps}
+              onChange={(e) => setReps(e.target.value)}
+              fullWidth
+            />
+          </Box>
           <Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
               ¿Cómo te sentiste?
@@ -334,6 +399,9 @@ export default function WorkoutPage() {
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button color="error" onClick={deleteSet} sx={{ mr: 'auto' }}>
+            Eliminar serie
+          </Button>
           <Button color="inherit" onClick={() => setMarking(null)}>
             Cancelar
           </Button>

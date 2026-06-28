@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
+import CardActionArea from '@mui/material/CardActionArea'
 import CardContent from '@mui/material/CardContent'
 import IconButton from '@mui/material/IconButton'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
@@ -103,6 +104,7 @@ export default function HistoryPage() {
 
         {workouts.map((workout) => (
           <Card key={workout.id}>
+            <CardActionArea onClick={() => router.push(`/train/${workout.id}`)}>
             <CardContent>
               <Typography variant="body1" sx={{ fontWeight: 700, textTransform: 'capitalize' }}>
                 {formatDate(workout.started_at)}
@@ -121,6 +123,7 @@ export default function HistoryPage() {
                 )}
               </Box>
             </CardContent>
+            </CardActionArea>
           </Card>
         ))}
       </Box>
