@@ -32,7 +32,7 @@ import type { User } from '@supabase/supabase-js'
 // Acciones primarias, siempre visibles abajo.
 const BOTTOM_TABS = [
   { label: 'Inicio', value: '/dashboard', icon: <HomeIcon /> },
-  { label: 'Entrenar', value: '/train', icon: <FitnessCenterIcon /> },
+  { label: 'Entrenamiento', value: '/train', icon: <FitnessCenterIcon /> },
   { label: 'Rutina', value: '/routine', icon: <ChecklistIcon /> },
   { label: 'Comunidad', value: '/friends', icon: <GroupIcon /> },
 ]

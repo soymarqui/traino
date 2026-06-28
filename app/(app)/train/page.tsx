@@ -164,7 +164,7 @@ function TrainInner() {
       {/* Header */}
       <Box sx={{ px: 3, pt: 4, pb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Entrenar
+          Entrenamiento
         </Typography>
         {routineName && (
           <Typography variant="body2" color="text.secondary">
