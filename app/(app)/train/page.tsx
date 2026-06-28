@@ -1,79 +1,84 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
 import Button from '@mui/material/Button'
-import IconButton from '@mui/material/IconButton'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { createClient } from '@/lib/supabase/client'
-import { Muscle } from '@/types/database'
+import { equipmentLabel } from '@/lib/equipment'
+import { Exercise, Muscle } from '@/types/database'
 import { useRouter } from 'next/navigation'
 
-const DEFAULT_GROUPS = [
-  { name: 'Full Body', muscles: ['pecho', 'espalda', 'hombros', 'cuadriceps', 'gluteos'] },
-  { name: 'Push', muscles: ['pecho', 'hombros', 'triceps'] },
-  { name: 'Pull', muscles: ['espalda', 'biceps'] },
-  { name: 'Legs', muscles: ['cuadriceps', 'isquios', 'gluteos', 'pantorrillas'] },
-  { name: 'Pecho + Tríceps', muscles: ['pecho', 'triceps'] },
-  { name: 'Espalda + Bíceps', muscles: ['espalda', 'biceps'] },
-  { name: 'Hombros', muscles: ['hombros'] },
-]
-
 export default function TrainPage() {
+  const [exercises, setExercises] = useState<Exercise[]>([])
   const [muscles, setMuscles] = useState<Muscle[]>([])
+  const [lastDone, setLastDone] = useState<Record<string, number>>({})
+  const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null)
   const [selected, setSelected] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [starting, setStarting] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.from('muscles').select('*').order('name').then(({ data }) => {
-      setMuscles(data || [])
-    })
+    const load = async () => {
+      const [{ data: ex }, { data: ms }, { data: workouts }, { data: sets }] =
+        await Promise.all([
+          supabase
+            .from('exercises')
+            .select('*, muscle:muscles(id, name, slug)')
+            .eq('active', true)
+            .order('name'),
+          supabase.from('muscles').select('*').order('name'),
+          supabase.from('workouts').select('id, started_at'),
+          supabase.from('sets').select('exercise_id, workout_id'),
+        ])
+
+      // Última vez que se hizo cada ejercicio (para sugerir lo menos reciente).
+      const wDate: Record<string, number> = {}
+      ;(workouts || []).forEach((w: { id: string; started_at: string }) => {
+        wDate[w.id] = new Date(w.started_at).getTime()
+      })
+      const last: Record<string, number> = {}
+      ;(sets || []).forEach((s: { exercise_id: string; workout_id: string }) => {
+        const t = wDate[s.workout_id] ?? 0
+        if (t > (last[s.exercise_id] ?? 0)) last[s.exercise_id] = t
+      })
+
+      setExercises((ex as Exercise[]) || [])
+      setMuscles(ms || [])
+      setLastDone(last)
+      setLoading(false)
+    }
+    load()
   }, [])
 
-  const toggleMuscle = (slug: string) => {
-    setSelected((prev) =>
-      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
+  // Filtrado por músculo + orden por "menos reciente" (nunca hecho primero).
+  const ordered = useMemo(() => {
+    const list = selectedMuscle
+      ? exercises.filter((e) => e.muscle_id === selectedMuscle)
+      : exercises
+    return [...list].sort(
+      (a, b) => (lastDone[a.id] ?? 0) - (lastDone[b.id] ?? 0)
     )
-  }
+  }, [exercises, selectedMuscle, lastDone])
 
-  const selectGroup = (groupMuscles: string[]) => {
-    setSelected(groupMuscles)
-  }
+  const suggestedId = ordered[0]?.id
+
+  const toggle = (id: string) =>
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
 
   const handleStart = async () => {
     if (selected.length === 0) return
-    setLoading(true)
+    setStarting(true)
 
     const { data: { user } } = await supabase.auth.getUser()
-
-    // Obtener IDs de músculos seleccionados
-    const selectedMuscleIds = muscles
-      .filter((m) => selected.includes(m.slug))
-      .map((m) => m.id)
-
-    // Buscar ejercicios de esos músculos
-    const { data: exercises } = await supabase
-      .from('exercises')
-      .select('*')
-      .in('muscle_id', selectedMuscleIds)
-      .eq('active', true)
-
-    if (!exercises || exercises.length === 0) {
-      alert('No hay ejercicios para los músculos seleccionados. Agregá ejercicios primero.')
-      setLoading(false)
-      return
-    }
-
-    // Mezclar y tomar hasta 8
-    const shuffled = exercises.sort(() => Math.random() - 0.5).slice(0, 8)
-
-    // Crear workout
     const { data: workout, error } = await supabase
       .from('workouts')
       .insert({ user_id: user?.id })
@@ -81,100 +86,177 @@ export default function TrainPage() {
       .single()
 
     if (error || !workout) {
-      setLoading(false)
+      setStarting(false)
       return
     }
 
-    // Crear sets para cada ejercicio
-    const setsToInsert = shuffled.flatMap((exercise) =>
-      Array.from({ length: exercise.suggested_sets }, (_, i) => ({
+    const chosen = exercises.filter((e) => selected.includes(e.id))
+    const setsToInsert = chosen.flatMap((ex) =>
+      Array.from({ length: ex.suggested_sets || 3 }, (_, i) => ({
         workout_id: workout.id,
-        exercise_id: exercise.id,
+        exercise_id: ex.id,
         set_number: i + 1,
-        reps_target: exercise.reps_min,
+        reps_target: ex.reps_min,
         completed: false,
       }))
     )
-
     await supabase.from('sets').insert(setsToInsert)
 
     router.push(`/train/${workout.id}`)
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', pb: 10 }}>
+    <Box sx={{ minHeight: '100vh', pb: 16 }}>
       {/* Header */}
-      <Box sx={{ px: 3, pt: 4, pb: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <IconButton onClick={() => router.back()}>
-          <ArrowBackIcon />
-        </IconButton>
+      <Box sx={{ px: 3, pt: 4, pb: 1 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
           Nuevo entrenamiento
         </Typography>
-      </Box>
-
-      {/* Grupos rápidos */}
-      <Box sx={{ px: 3, mb: 3 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-          Grupos rápidos
+        <Typography variant="body2" color="text.secondary">
+          Deslizá y tocá los ejercicios que querés hacer
         </Typography>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {DEFAULT_GROUPS.map((group) => (
-            <Card
-              key={group.name}
-              onClick={() => selectGroup(group.muscles)}
-              sx={{
-                cursor: 'pointer',
-                border: group.muscles.every(m => selected.includes(m)) && selected.length === group.muscles.length
-                  ? '1px solid'
-                  : '1px solid #222',
-                borderColor: group.muscles.every(m => selected.includes(m)) && selected.length === group.muscles.length
-                  ? 'primary.main'
-                  : '#222',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {group.name}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {group.muscles.join(', ')}
-                </Typography>
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
       </Box>
 
-      {/* Selección individual */}
-      <Box sx={{ px: 3, mb: 3 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-          O elegí músculos
+      {/* Filtro por músculo */}
+      <Box
+        sx={{
+          px: 3,
+          py: 2,
+          display: 'flex',
+          gap: 1,
+          overflowX: 'auto',
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}
+      >
+        <Chip
+          label="Todos"
+          onClick={() => setSelectedMuscle(null)}
+          color={selectedMuscle === null ? 'primary' : 'default'}
+          sx={{ flexShrink: 0 }}
+        />
+        {muscles.map((m) => (
+          <Chip
+            key={m.id}
+            label={m.name}
+            onClick={() => setSelectedMuscle(m.id)}
+            color={selectedMuscle === m.id ? 'primary' : 'default'}
+            sx={{ flexShrink: 0 }}
+          />
+        ))}
+      </Box>
+
+      {/* Carrusel de ejercicios */}
+      {loading && (
+        <Typography color="text.secondary" sx={{ px: 3 }}>
+          Cargando...
         </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          {muscles.map((m) => (
-            <Chip
-              key={m.id}
-              label={m.name}
-              onClick={() => toggleMuscle(m.slug)}
-              color={selected.includes(m.slug) ? 'primary' : 'default'}
-            />
-          ))}
-        </Box>
-      </Box>
+      )}
 
-      {/* Botón iniciar */}
+      {!loading && ordered.length === 0 && (
+        <Typography color="text.secondary" sx={{ px: 3 }}>
+          No hay ejercicios para ese filtro.
+        </Typography>
+      )}
+
+      {!loading && ordered.length > 0 && (
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 2,
+            overflowX: 'auto',
+            scrollSnapType: 'x mandatory',
+            px: 3,
+            pb: 1,
+            '&::-webkit-scrollbar': { display: 'none' },
+          }}
+        >
+          {ordered.map((ex) => {
+            const isSelected = selected.includes(ex.id)
+            const isSuggested = ex.id === suggestedId
+            return (
+              <Card
+                key={ex.id}
+                onClick={() => toggle(ex.id)}
+                sx={{
+                  flex: '0 0 78%',
+                  scrollSnapAlign: 'center',
+                  position: 'relative',
+                  cursor: 'pointer',
+                  border: '2px solid',
+                  borderColor: isSelected ? 'primary.main' : 'divider',
+                  transition: 'border-color 0.15s ease',
+                }}
+              >
+                <CardContent
+                  sx={{
+                    minHeight: 180,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1,
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                    {isSuggested && (
+                      <Chip
+                        label="Sugerido"
+                        size="small"
+                        color="primary"
+                        sx={{ fontWeight: 700 }}
+                      />
+                    )}
+                    <Box sx={{ flex: 1 }} />
+                    {isSelected && (
+                      <CheckCircleIcon sx={{ color: 'primary.main' }} />
+                    )}
+                  </Box>
+
+                  <Typography variant="h6" sx={{ fontWeight: 700, mt: 1 }}>
+                    {ex.name}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {ex.muscle?.name}
+                  </Typography>
+
+                  <Box sx={{ flex: 1 }} />
+
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                    {(ex.equipment ?? []).map((eq) => (
+                      <Chip
+                        key={eq}
+                        label={equipmentLabel(eq)}
+                        size="small"
+                        sx={{ opacity: 0.7 }}
+                      />
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </Box>
+      )}
+
+      {/* Botón flotante, por encima del menú inferior */}
       {selected.length > 0 && (
-        <Box sx={{ px: 3 }}>
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: '76px',
+            left: '16px',
+            right: '16px',
+            zIndex: 11,
+          }}
+        >
           <Button
             variant="contained"
             size="large"
             fullWidth
             onClick={handleStart}
-            disabled={loading}
+            disabled={starting}
           >
-            {loading ? 'Generando...' : `Iniciar entrenamiento`}
+            {starting
+              ? 'Empezando...'
+              : `Empezar entrenamiento (${selected.length})`}
           </Button>
         </Box>
       )}
