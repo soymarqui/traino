@@ -9,7 +9,7 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import { createClient } from '@/lib/supabase/client'
 import { displayName } from '@/lib/user'
 import { useRouter } from 'next/navigation'
-import WorkoutCalendar from './WorkoutCalendar'
+import WorkoutCalendar from '@/components/WorkoutCalendar'
 
 const PHRASES = [
   '¿Qué vamos a entrenar hoy?',

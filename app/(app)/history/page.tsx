@@ -11,6 +11,12 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import WorkoutCalendar from '@/components/WorkoutCalendar'
+
+function dateKey(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 type WorkoutSummary = {
   id: string
@@ -23,6 +29,7 @@ type WorkoutSummary = {
 
 export default function HistoryPage() {
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([])
+  const [doneByDate, setDoneByDate] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const supabase = createClient()
@@ -58,7 +65,13 @@ export default function HistoryPage() {
       }
     })
 
+    const map: Record<string, string> = {}
+    summaries.forEach((w) => {
+      map[dateKey(w.started_at)] = w.id
+    })
+
     setWorkouts(summaries)
+    setDoneByDate(map)
     setLoading(false)
   }
 
@@ -86,6 +99,16 @@ export default function HistoryPage() {
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
           Historial
         </Typography>
+      </Box>
+
+      {/* Calendario */}
+      <Box sx={{ px: 3, mb: 2 }}>
+        <WorkoutCalendar
+          doneByDate={doneByDate}
+          plannedDates={[]}
+          onSelectDone={(id) => router.push(`/train/${id}`)}
+          onToggleFuture={() => {}}
+        />
       </Box>
 
       <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
