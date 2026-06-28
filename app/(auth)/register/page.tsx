@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation'
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
+  const [handle, setHandle] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -22,8 +23,28 @@ export default function RegisterPage() {
     setLoading(true)
     setError('')
 
+    const cleanHandle = handle.trim().toLowerCase()
+
+    if (!/^[a-z0-9_]{3,20}$/.test(cleanHandle)) {
+      setError('El usuario debe tener 3-20 caracteres: letras, números o _ (sin espacios).')
+      setLoading(false)
+      return
+    }
+
     if (password.length < 6) {
       setError('La contraseña debe tener al menos 6 caracteres.')
+      setLoading(false)
+      return
+    }
+
+    // ¿Handle disponible?
+    const { data: taken } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('handle', cleanHandle)
+      .maybeSingle()
+    if (taken) {
+      setError('Ese nombre de usuario ya está en uso.')
       setLoading(false)
       return
     }
@@ -33,6 +54,7 @@ export default function RegisterPage() {
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/dashboard`,
+        data: { handle: cleanHandle },
       },
     })
 
@@ -108,6 +130,15 @@ export default function RegisterPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           fullWidth
+        />
+
+        <TextField
+          label="Nombre de usuario"
+          value={handle}
+          onChange={(e) => setHandle(e.target.value)}
+          fullWidth
+          placeholder="ej: marcos_fit"
+          slotProps={{ input: { startAdornment: <span style={{ color: '#888', marginRight: 2 }}>@</span> } }}
         />
 
         <TextField
