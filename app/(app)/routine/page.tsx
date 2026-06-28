@@ -116,8 +116,9 @@ export default function RoutinesPage() {
   }
 
   const activate = async (id: string) => {
+    if (!userId) return
     setActiveId(id)
-    await supabase.from('profiles').update({ active_routine_id: id }).eq('id', userId ?? '')
+    await supabase.from('profiles').upsert({ id: userId, active_routine_id: id })
     setSnack('Rutina activada')
   }
 

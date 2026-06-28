@@ -99,7 +99,7 @@ export default function SettingsPage() {
       const { data } = supabase.storage.from('avatars').getPublicUrl(path)
       const url = `${data.publicUrl}?t=${Date.now()}`
       await supabase.auth.updateUser({ data: { avatar_url: url } })
-      await supabase.from('profiles').update({ avatar_url: url }).eq('id', userId)
+      await supabase.from('profiles').upsert({ id: userId, avatar_url: url })
       setAvatar(url)
       setSaved(true)
     }
@@ -146,17 +146,21 @@ export default function SettingsPage() {
       },
     })
 
-    await supabase
+    const { error: profErr } = await supabase
       .from('profiles')
-      .update({
+      .upsert({
+        id: userId,
         handle: cleanHandle,
         display_name: form.name.trim(),
         avatar_url: avatar || null,
         bio: form.bio.trim() || null,
       })
-      .eq('id', userId ?? '')
 
     setSaving(false)
+    if (profErr) {
+      setError('No se pudo guardar el perfil. Intentá de nuevo.')
+      return
+    }
     setSaved(true)
   }
 
