@@ -33,9 +33,9 @@ import { RestTimerProvider } from '@/components/RestTimer'
 // Acciones primarias, siempre visibles abajo.
 const BOTTOM_TABS = [
   { label: 'Inicio', value: '/dashboard', icon: <HomeIcon /> },
-  { label: 'Entrenamiento', value: '/train', icon: <FitnessCenterIcon /> },
-  { label: 'Rutina', value: '/routine', icon: <ChecklistIcon /> },
   { label: 'Comunidades', value: '/friends', icon: <GroupIcon /> },
+  { label: 'Rutina', value: '/routine', icon: <ChecklistIcon /> },
+  { label: 'Entrenamiento', value: '/train', icon: <FitnessCenterIcon /> },
 ]
 
 // Secciones secundarias, en el menú lateral (burger).
