@@ -12,6 +12,10 @@ import MenuItem from '@mui/material/MenuItem'
 import Avatar from '@mui/material/Avatar'
 import Alert from '@mui/material/Alert'
 import Snackbar from '@mui/material/Snackbar'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
 import LogoutIcon from '@mui/icons-material/Logout'
 import { createClient } from '@/lib/supabase/client'
 import { isAdmin } from '@/lib/admin'
@@ -44,6 +48,8 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [avatar, setAvatar] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -188,6 +194,19 @@ export default function SettingsPage() {
     setSigningOut(true)
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true)
+    const res = await fetch('/api/delete-account', { method: 'POST' })
+    if (res.ok) {
+      await supabase.auth.signOut()
+      router.push('/login')
+    } else {
+      setDeleting(false)
+      setDeleteOpen(false)
+      setError('No se pudo borrar la cuenta. Intentá de nuevo.')
+    }
   }
 
   return (
@@ -386,7 +405,30 @@ export default function SettingsPage() {
         >
           {signingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
         </Button>
+
+        <Button color="error" fullWidth onClick={() => setDeleteOpen(true)} sx={{ mt: 1 }}>
+          Borrar cuenta
+        </Button>
       </Box>
+
+      {/* Confirmar borrar cuenta */}
+      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Borrar cuenta</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Esto es <b>irreversible</b>: se eliminan tu cuenta y todos tus datos
+            (rutinas, entrenamientos, fotos, etc.). ¿Seguro?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setDeleteOpen(false)}>
+            Cancelar
+          </Button>
+          <Button color="error" onClick={handleDeleteAccount} disabled={deleting}>
+            {deleting ? 'Borrando...' : 'Borrar definitivamente'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={saved}
