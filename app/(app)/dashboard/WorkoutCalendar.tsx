@@ -20,14 +20,19 @@ function ymd(y: number, m: number, d: number): string {
 
 export default function WorkoutCalendar({
   doneByDate,
+  plannedDates,
   onSelectDone,
-  onSelectFuture,
+  onToggleFuture,
 }: {
-  // 'YYYY-MM-DD' -> workoutId del entrenamiento completado ese día
+  // 'YYYY-MM-DD' -> workoutId del entrenamiento de ese día
   doneByDate: Record<string, string>
+  // días con entrenamiento planificado ('YYYY-MM-DD')
+  plannedDates: string[]
   onSelectDone: (workoutId: string) => void
-  onSelectFuture: (dateKey: string) => void
+  // tocar un día futuro: agrega o quita el plan
+  onToggleFuture: (dateKey: string) => void
 }) {
+  const planned = new Set(plannedDates)
   const today = new Date()
   const todayKey = ymd(today.getFullYear(), today.getMonth(), today.getDate())
   const [view, setView] = useState({ y: today.getFullYear(), m: today.getMonth() })
@@ -48,7 +53,7 @@ export default function WorkoutCalendar({
     const key = ymd(view.y, view.m, d)
     const doneId = doneByDate[key]
     if (doneId) onSelectDone(doneId)
-    else if (key > todayKey) onSelectFuture(key)
+    else if (key > todayKey) onToggleFuture(key)
   }
 
   return (
@@ -86,6 +91,7 @@ export default function WorkoutCalendar({
           if (d === null) return <Box key={`b${i}`} />
           const key = ymd(view.y, view.m, d)
           const doneId = doneByDate[key]
+          const isPlanned = !doneId && planned.has(key)
           const isToday = key === todayKey
           const isFuture = key > todayKey
           const clickable = !!doneId || isFuture
@@ -111,11 +117,13 @@ export default function WorkoutCalendar({
               </Typography>
               <Box
                 sx={{
-                  width: 5,
-                  height: 5,
+                  width: 6,
+                  height: 6,
                   mt: 0.25,
                   borderRadius: '50%',
                   bgcolor: doneId ? 'primary.main' : 'transparent',
+                  border: isPlanned ? '1.5px solid' : 'none',
+                  borderColor: 'primary.main',
                 }}
               />
             </Box>

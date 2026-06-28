@@ -53,29 +53,52 @@ const menuItems = [
 export default function DashboardPage() {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
+  const [userId, setUserId] = useState<string | null>(null)
   const [doneByDate, setDoneByDate] = useState<Record<string, string>>({})
-  const [planMsg, setPlanMsg] = useState(false)
+  const [plannedDates, setPlannedDates] = useState<string[]>([])
+  const [snack, setSnack] = useState('')
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    const load = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
       setEmail(user?.email || '')
       setName(displayName(user))
-    })
+      setUserId(user?.id ?? null)
 
-    supabase
-      .from('workouts')
-      .select('id, started_at, finished_at')
-      .not('finished_at', 'is', null)
-      .then(({ data }) => {
-        const map: Record<string, string> = {}
-        ;(data || []).forEach((w: { id: string; started_at: string }) => {
-          map[dateKey(w.started_at)] = w.id
-        })
-        setDoneByDate(map)
+      // Días con entrenamiento (iniciado o terminado) -> punto lleno.
+      const { data: workouts } = await supabase
+        .from('workouts')
+        .select('id, started_at')
+        .not('started_at', 'is', null)
+      const map: Record<string, string> = {}
+      ;(workouts || []).forEach((w: { id: string; started_at: string }) => {
+        map[dateKey(w.started_at)] = w.id
       })
+      setDoneByDate(map)
+
+      // Días planificados -> contorno.
+      const { data: planned } = await supabase
+        .from('planned_workouts')
+        .select('date')
+      setPlannedDates((planned || []).map((p: { date: string }) => p.date))
+    }
+    load()
   }, [])
+
+  const toggleFuture = async (key: string) => {
+    if (!userId) return
+    if (plannedDates.includes(key)) {
+      setPlannedDates((prev) => prev.filter((d) => d !== key))
+      await supabase.from('planned_workouts').delete().eq('user_id', userId).eq('date', key)
+      setSnack('Plan quitado')
+    } else {
+      setPlannedDates((prev) => [...prev, key])
+      await supabase.from('planned_workouts').insert({ user_id: userId, date: key })
+      setSnack('Día planificado')
+    }
+  }
 
   return (
     <Box sx={{ minHeight: '100vh', pb: 10 }}>
@@ -93,8 +116,9 @@ export default function DashboardPage() {
       <Box sx={{ px: 3, mb: 3 }}>
         <WorkoutCalendar
           doneByDate={doneByDate}
+          plannedDates={plannedDates}
           onSelectDone={(id) => router.push(`/train/${id}`)}
-          onSelectFuture={() => setPlanMsg(true)}
+          onToggleFuture={toggleFuture}
         />
       </Box>
 
@@ -134,10 +158,10 @@ export default function DashboardPage() {
       </Box>
 
       <Snackbar
-        open={planMsg}
-        autoHideDuration={3000}
-        onClose={() => setPlanMsg(false)}
-        message="Pronto vas a poder planificar tu entrenamiento para este día"
+        open={!!snack}
+        autoHideDuration={2500}
+        onClose={() => setSnack('')}
+        message={snack}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         sx={{ mb: 8 }}
       />

@@ -8,6 +8,7 @@ import CardContent from '@mui/material/CardContent'
 import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import TextField from '@mui/material/TextField'
+import MenuItem from '@mui/material/MenuItem'
 import Snackbar from '@mui/material/Snackbar'
 import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import LogoutIcon from '@mui/icons-material/Logout'
@@ -15,14 +16,28 @@ import { createClient } from '@/lib/supabase/client'
 import { isAdmin } from '@/lib/admin'
 import { useRouter } from 'next/navigation'
 
+const GOALS = [
+  { value: 'fuerza', label: 'Fuerza' },
+  { value: 'hipertrofia', label: 'Hipertrofia' },
+  { value: 'resistencia', label: 'Resistencia' },
+  { value: 'perdida_grasa', label: 'Pérdida de grasa' },
+  { value: 'salud', label: 'Salud general' },
+]
+
 export default function SettingsPage() {
   const [email, setEmail] = useState('')
   const [admin, setAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [name, setName] = useState('')
-  const [savingName, setSavingName] = useState(false)
-  const [savedName, setSavedName] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+  const [form, setForm] = useState({
+    name: '',
+    age: '',
+    height: '',
+    weight: '',
+    goal: '',
+  })
   const router = useRouter()
   const supabase = createClient()
 
@@ -30,16 +45,36 @@ export default function SettingsPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setEmail(user?.email || '')
       setAdmin(isAdmin(user?.email))
-      setName((user?.user_metadata?.full_name as string | undefined) || '')
+      const m = user?.user_metadata ?? {}
+      setForm({
+        name: m.full_name ?? '',
+        age: m.age != null ? String(m.age) : '',
+        height: m.height_cm != null ? String(m.height_cm) : '',
+        weight: m.weight_kg != null ? String(m.weight_kg) : '',
+        goal: m.goal ?? '',
+      })
       setLoading(false)
     })
   }, [])
 
-  const handleSaveName = async () => {
-    setSavingName(true)
-    await supabase.auth.updateUser({ data: { full_name: name.trim() } })
-    setSavingName(false)
-    setSavedName(true)
+  const set = (field: keyof typeof form, value: string) =>
+    setForm((prev) => ({ ...prev, [field]: value }))
+
+  const num = (v: string) => (v.trim() === '' ? null : Number(v))
+
+  const handleSave = async () => {
+    setSaving(true)
+    await supabase.auth.updateUser({
+      data: {
+        full_name: form.name.trim(),
+        age: num(form.age),
+        height_cm: num(form.height),
+        weight_kg: num(form.weight),
+        goal: form.goal || null,
+      },
+    })
+    setSaving(false)
+    setSaved(true)
   }
 
   const handleSignOut = async () => {
@@ -75,21 +110,65 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Nombre */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        {/* Datos del perfil */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}
+          >
+            Mi perfil
+          </Typography>
+
           <TextField
             label="Nombre"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={form.name}
+            onChange={(e) => set('name', e.target.value)}
             fullWidth
             placeholder="¿Cómo querés que te llamemos?"
           />
-          <Button
-            variant="contained"
-            onClick={handleSaveName}
-            disabled={savingName || loading}
+
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              label="Edad"
+              type="number"
+              value={form.age}
+              onChange={(e) => set('age', e.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Altura (cm)"
+              type="number"
+              value={form.height}
+              onChange={(e) => set('height', e.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Peso (kg)"
+              type="number"
+              value={form.weight}
+              onChange={(e) => set('weight', e.target.value)}
+              fullWidth
+            />
+          </Box>
+
+          <TextField
+            label="Objetivo de entrenamiento"
+            value={form.goal}
+            onChange={(e) => set('goal', e.target.value)}
+            fullWidth
+            select
           >
-            {savingName ? 'Guardando...' : 'Guardar nombre'}
+            <MenuItem value="">Sin especificar</MenuItem>
+            {GOALS.map((g) => (
+              <MenuItem key={g.value} value={g.value}>
+                {g.label}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <Button variant="contained" onClick={handleSave} disabled={saving || loading}>
+            {saving ? 'Guardando...' : 'Guardar perfil'}
           </Button>
         </Box>
 
@@ -107,10 +186,10 @@ export default function SettingsPage() {
       </Box>
 
       <Snackbar
-        open={savedName}
+        open={saved}
         autoHideDuration={2500}
-        onClose={() => setSavedName(false)}
-        message="Nombre actualizado"
+        onClose={() => setSaved(false)}
+        message="Perfil actualizado"
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         sx={{ mb: 8 }}
       />
