@@ -9,9 +9,19 @@ import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
 import HistoryIcon from '@mui/icons-material/History'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import Snackbar from '@mui/material/Snackbar'
 import { createClient } from '@/lib/supabase/client'
 import { displayName } from '@/lib/user'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import WorkoutCalendar from './WorkoutCalendar'
+
+function dateKey(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate()
+  ).padStart(2, '0')}`
+}
 
 const menuItems = [
   {
@@ -43,6 +53,9 @@ const menuItems = [
 export default function DashboardPage() {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
+  const [doneByDate, setDoneByDate] = useState<Record<string, string>>({})
+  const [planMsg, setPlanMsg] = useState(false)
+  const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
@@ -50,6 +63,18 @@ export default function DashboardPage() {
       setEmail(user?.email || '')
       setName(displayName(user))
     })
+
+    supabase
+      .from('workouts')
+      .select('id, started_at, finished_at')
+      .not('finished_at', 'is', null)
+      .then(({ data }) => {
+        const map: Record<string, string> = {}
+        ;(data || []).forEach((w: { id: string; started_at: string }) => {
+          map[dateKey(w.started_at)] = w.id
+        })
+        setDoneByDate(map)
+      })
   }, [])
 
   return (
@@ -62,6 +87,15 @@ export default function DashboardPage() {
         <Typography variant="body2" color="text.secondary">
           {email}
         </Typography>
+      </Box>
+
+      {/* Calendario */}
+      <Box sx={{ px: 3, mb: 3 }}>
+        <WorkoutCalendar
+          doneByDate={doneByDate}
+          onSelectDone={(id) => router.push(`/train/${id}`)}
+          onSelectFuture={() => setPlanMsg(true)}
+        />
       </Box>
 
       {/* Menu */}
@@ -98,6 +132,15 @@ export default function DashboardPage() {
           </Link>
         ))}
       </Box>
+
+      <Snackbar
+        open={planMsg}
+        autoHideDuration={3000}
+        onClose={() => setPlanMsg(false)}
+        message="Pronto vas a poder planificar tu entrenamiento para este día"
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{ mb: 8 }}
+      />
     </Box>
   )
 }
