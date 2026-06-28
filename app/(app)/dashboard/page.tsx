@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
-import Snackbar from '@mui/material/Snackbar'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import { createClient } from '@/lib/supabase/client'
 import { displayName } from '@/lib/user'
@@ -67,10 +66,8 @@ function computeSuggestion(hist: { workout?: { started_at: string } | null; exer
 
 export default function DashboardPage() {
   const [name, setName] = useState('')
-  const [userId, setUserId] = useState<string | null>(null)
   const [doneByDate, setDoneByDate] = useState<Record<string, string>>({})
   const [plannedDates, setPlannedDates] = useState<string[]>([])
-  const [snack, setSnack] = useState('')
   const [phrase, setPhrase] = useState('')
   const [suggestion, setSuggestion] = useState('')
   const router = useRouter()
@@ -83,7 +80,6 @@ export default function DashboardPage() {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setName(displayName(user))
-      setUserId(user?.id ?? null)
 
       // Días con entrenamiento (iniciado o terminado) -> punto lleno.
       const { data: workouts } = await supabase
@@ -118,19 +114,6 @@ export default function DashboardPage() {
     load()
   }, [])
 
-  const toggleFuture = async (key: string) => {
-    if (!userId) return
-    if (plannedDates.includes(key)) {
-      setPlannedDates((prev) => prev.filter((d) => d !== key))
-      await supabase.from('planned_workouts').delete().eq('user_id', userId).eq('date', key)
-      setSnack('Plan quitado')
-    } else {
-      setPlannedDates((prev) => [...prev, key])
-      await supabase.from('planned_workouts').insert({ user_id: userId, date: key })
-      setSnack('Día planificado')
-    }
-  }
-
   return (
     <Box sx={{ minHeight: '100vh', pb: 10 }}>
       {/* Header */}
@@ -164,18 +147,9 @@ export default function DashboardPage() {
           doneByDate={doneByDate}
           plannedDates={plannedDates}
           onSelectDone={(id) => router.push(`/train/${id}`)}
-          onToggleFuture={toggleFuture}
+          onSelectFuture={(d) => router.push(`/plan/${d}`)}
         />
       </Box>
-
-      <Snackbar
-        open={!!snack}
-        autoHideDuration={2500}
-        onClose={() => setSnack('')}
-        message={snack}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        sx={{ mb: 8 }}
-      />
     </Box>
   )
 }

@@ -22,7 +22,7 @@ export default function WorkoutCalendar({
   doneByDate,
   plannedDates,
   onSelectDone,
-  onToggleFuture,
+  onSelectFuture,
   onSelectEmptyPast,
 }: {
   // 'YYYY-MM-DD' -> workoutId del entrenamiento de ese día
@@ -30,8 +30,8 @@ export default function WorkoutCalendar({
   // días con entrenamiento planificado ('YYYY-MM-DD')
   plannedDates: string[]
   onSelectDone: (workoutId: string) => void
-  // tocar un día futuro: agrega o quita el plan
-  onToggleFuture: (dateKey: string) => void
+  // tocar un día futuro (planificar)
+  onSelectFuture: (dateKey: string) => void
   // tocar un día pasado/hoy sin entrenamiento (registrar manualmente)
   onSelectEmptyPast?: (dateKey: string) => void
 }) {
@@ -56,7 +56,7 @@ export default function WorkoutCalendar({
     const key = ymd(view.y, view.m, d)
     const doneId = doneByDate[key]
     if (doneId) onSelectDone(doneId)
-    else if (key > todayKey) onToggleFuture(key)
+    else if (key > todayKey) onSelectFuture(key)
     else onSelectEmptyPast?.(key)
   }
 

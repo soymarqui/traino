@@ -30,6 +30,7 @@ type WorkoutSummary = {
 export default function HistoryPage() {
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([])
   const [doneByDate, setDoneByDate] = useState<Record<string, string>>({})
+  const [plannedDates, setPlannedDates] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const supabase = createClient()
@@ -70,6 +71,9 @@ export default function HistoryPage() {
       map[dateKey(w.started_at)] = w.id
     })
 
+    const { data: planned } = await supabase.from('planned_workouts').select('date')
+    setPlannedDates((planned || []).map((p: { date: string }) => p.date))
+
     setWorkouts(summaries)
     setDoneByDate(map)
     setLoading(false)
@@ -105,9 +109,9 @@ export default function HistoryPage() {
       <Box sx={{ px: 3, mb: 2 }}>
         <WorkoutCalendar
           doneByDate={doneByDate}
-          plannedDates={[]}
+          plannedDates={plannedDates}
           onSelectDone={(id) => router.push(`/train/${id}`)}
-          onToggleFuture={() => {}}
+          onSelectFuture={(d) => router.push(`/plan/${d}`)}
           onSelectEmptyPast={(d) => router.push(`/train?date=${d}`)}
         />
       </Box>
