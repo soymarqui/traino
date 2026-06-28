@@ -16,6 +16,7 @@ import IconButton from '@mui/material/IconButton'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import { muscleLabel } from '@/lib/muscles'
+import { useRestTimer } from '@/components/RestTimer'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
@@ -105,6 +106,7 @@ export default function WorkoutPage() {
   const params = useParams()
   const workoutId = params.workoutId as string
   const supabase = createClient()
+  const { start: startRest, secondsLeft, active: restActive } = useRestTimer()
 
   useEffect(() => {
     fetchWorkout()
@@ -270,6 +272,8 @@ export default function WorkoutPage() {
       .from('sets')
       .update({ weight: w, feeling, completed: true, reps_actual: r })
       .eq('id', setId)
+    // Arrancar el descanso.
+    startRest(marking.set.rest_seconds ?? 60)
   }
 
   const updateRoutineRef = async () => {
@@ -734,6 +738,22 @@ export default function WorkoutPage() {
           <Button color="error" fullWidth onClick={() => setDeleteOpen(true)} sx={{ mt: 1 }}>
             Eliminar entrenamiento
           </Button>
+        </Box>
+      )}
+
+      {/* Countdown de descanso */}
+      {restActive && secondsLeft > 3 && (
+        <Box
+          sx={{
+            position: 'fixed', bottom: '80px', left: '16px', right: '16px', zIndex: 11,
+            bgcolor: 'background.paper', border: '1px solid', borderColor: 'primary.main',
+            borderRadius: 2, py: 1, textAlign: 'center',
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">Descanso</Typography>
+          <Typography variant="h6" sx={{ fontWeight: 800, color: 'primary.main' }}>
+            {secondsLeft}s
+          </Typography>
         </Box>
       )}
 

@@ -12,6 +12,8 @@ import MenuItem from '@mui/material/MenuItem'
 import Avatar from '@mui/material/Avatar'
 import Alert from '@mui/material/Alert'
 import Snackbar from '@mui/material/Snackbar'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import Switch from '@mui/material/Switch'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
@@ -66,6 +68,7 @@ export default function SettingsPage() {
     identity: '',
     observations: '',
     bio: '',
+    timer_enabled: true,
   })
   const router = useRouter()
   const supabase = createClient()
@@ -104,6 +107,7 @@ export default function SettingsPage() {
         identity,
         observations: m.observations ?? '',
         bio,
+        timer_enabled: m.timer_enabled !== false,
       })
       setLoading(false)
     }
@@ -168,6 +172,7 @@ export default function SettingsPage() {
         goal: form.goal || null,
         gender: form.gender || null,
         observations: form.observations.trim() || null,
+        timer_enabled: form.timer_enabled,
       },
     })
 
@@ -387,6 +392,16 @@ export default function SettingsPage() {
             rows={2}
             placeholder="Contá algo sobre vos"
             helperText="Pública (para la sección de comunidad)."
+          />
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={form.timer_enabled}
+                onChange={(e) => setForm((prev) => ({ ...prev, timer_enabled: e.target.checked }))}
+              />
+            }
+            label="Timer (countdown de descanso entre series)"
           />
 
           <Button variant="contained" onClick={handleSave} disabled={saving || loading}>

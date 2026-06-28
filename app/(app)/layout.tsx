@@ -28,6 +28,7 @@ import { createClient } from '@/lib/supabase/client'
 import { initialOf, avatarUrl } from '@/lib/user'
 import { usePathname, useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
+import { RestTimerProvider } from '@/components/RestTimer'
 
 // Acciones primarias, siempre visibles abajo.
 const BOTTOM_TABS = [
@@ -146,7 +147,7 @@ export default function AppLayout({
         </Box>
       </Drawer>
 
-      {children}
+      <RestTimerProvider>{children}</RestTimerProvider>
 
       {/* Navegación inferior */}
       <Paper
