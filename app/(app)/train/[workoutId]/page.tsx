@@ -562,12 +562,10 @@ export default function WorkoutPage() {
                     <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
                       {set.reps_target ? `${set.reps_target} reps` : 'serie'}
                     </Typography>
-                    {set.completed ? (
+                    {set.completed && (
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
                         {set.weight != null ? `${set.weight} kg` : '—'} {emoji(set.feeling)}
                       </Typography>
-                    ) : (
-                      <Chip label="Hecho" size="small" variant="outlined" />
                     )}
                   </Box>
                 ))}
