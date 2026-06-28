@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
@@ -15,6 +15,7 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
+import AddAPhotoIcon from '@mui/icons-material/AddAPhoto'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useParams } from 'next/navigation'
 
@@ -60,6 +61,11 @@ export default function WorkoutPage() {
   const [loading, setLoading] = useState(true)
   const [finishing, setFinishing] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [photoUrl, setPhotoUrl] = useState('')
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [showSummary, setShowSummary] = useState(false)
+  const photoRef = useRef<HTMLInputElement>(null)
   const [marking, setMarking] = useState<{ set: SetRow; exName: string } | null>(null)
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
@@ -74,6 +80,16 @@ export default function WorkoutPage() {
   }, [])
 
   const fetchWorkout = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    setUserId(user?.id ?? null)
+
+    const { data: workout } = await supabase
+      .from('workouts')
+      .select('photo_url')
+      .eq('id', workoutId)
+      .maybeSingle()
+    setPhotoUrl((workout as { photo_url: string | null } | null)?.photo_url ?? '')
+
     const { data: sets } = await supabase
       .from('sets')
       .select('*, exercise:exercises(id, name, reps_min, reps_max, rest_seconds)')
@@ -250,7 +266,26 @@ export default function WorkoutPage() {
       .from('workouts')
       .update({ finished_at: new Date().toISOString() })
       .eq('id', workoutId)
-    router.push('/history')
+    setFinishing(false)
+    setShowSummary(true)
+  }
+
+  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !userId) return
+    setUploadingPhoto(true)
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+    const path = `${userId}/${workoutId}.${ext}`
+    const { error } = await supabase.storage
+      .from('workout-photos')
+      .upload(path, file, { upsert: true })
+    if (!error) {
+      const { data } = supabase.storage.from('workout-photos').getPublicUrl(path)
+      const url = `${data.publicUrl}?t=${Date.now()}`
+      await supabase.from('workouts').update({ photo_url: url }).eq('id', workoutId)
+      setPhotoUrl(url)
+    }
+    setUploadingPhoto(false)
   }
 
   const handleDelete = async () => {
@@ -265,8 +300,53 @@ export default function WorkoutPage() {
     0
   )
 
+  if (showSummary) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh', pb: 12, px: 3, pt: 8,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, textAlign: 'center',
+        }}
+      >
+        <input ref={photoRef} type="file" accept="image/*" hidden onChange={handlePhoto} />
+        <CheckCircleIcon sx={{ fontSize: 64, color: 'primary.main' }} />
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
+          ¡Entrenamiento terminado!
+        </Typography>
+        <Typography color="text.secondary">
+          {completedSets}/{totalSets} series · {exercises.length} ejercicios
+        </Typography>
+
+        {photoUrl && (
+          <Box
+            component="img"
+            src={photoUrl}
+            alt="Foto del entrenamiento"
+            sx={{ width: '100%', maxWidth: 360, borderRadius: 3, mt: 1 }}
+          />
+        )}
+
+        <Button
+          variant="outlined"
+          color="inherit"
+          startIcon={<AddAPhotoIcon />}
+          onClick={() => photoRef.current?.click()}
+          disabled={uploadingPhoto}
+          sx={{ mt: 1 }}
+        >
+          {uploadingPhoto ? 'Subiendo...' : photoUrl ? 'Cambiar foto' : 'Agregar foto'}
+        </Button>
+
+        <Button variant="contained" size="large" fullWidth onClick={() => router.push('/history')} sx={{ mt: 2 }}>
+          Ver historial
+        </Button>
+      </Box>
+    )
+  }
+
   return (
     <Box sx={{ minHeight: '100vh', pb: 14 }}>
+      <input ref={photoRef} type="file" accept="image/*" hidden onChange={handlePhoto} />
       <Box sx={{ px: 3, pt: 4, pb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
           Entrenando
@@ -346,6 +426,24 @@ export default function WorkoutPage() {
 
       {!loading && (
         <Box sx={{ px: 3, mt: 4 }}>
+          {photoUrl && (
+            <Box
+              component="img"
+              src={photoUrl}
+              alt="Foto del entrenamiento"
+              sx={{ width: '100%', borderRadius: 3, mb: 1 }}
+            />
+          )}
+          <Button
+            color="inherit"
+            fullWidth
+            startIcon={<AddAPhotoIcon />}
+            onClick={() => photoRef.current?.click()}
+            disabled={uploadingPhoto}
+            sx={{ mb: 1 }}
+          >
+            {uploadingPhoto ? 'Subiendo...' : photoUrl ? 'Cambiar foto' : 'Agregar foto'}
+          </Button>
           <Button variant="contained" size="large" fullWidth onClick={handleFinish} disabled={finishing}>
             {finishing ? 'Guardando...' : 'Finalizar entrenamiento'}
           </Button>
