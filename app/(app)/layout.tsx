@@ -25,7 +25,7 @@ import HistoryIcon from '@mui/icons-material/History'
 import SettingsIcon from '@mui/icons-material/Settings'
 import GroupIcon from '@mui/icons-material/Group'
 import { createClient } from '@/lib/supabase/client'
-import { initialOf } from '@/lib/user'
+import { initialOf, avatarUrl } from '@/lib/user'
 import { usePathname, useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 
@@ -99,6 +99,7 @@ export default function AppLayout({
           </Typography>
           <IconButton onClick={() => router.push('/settings')} sx={{ p: 0 }} aria-label="perfil">
             <Avatar
+              src={avatarUrl(user) || undefined}
               sx={{
                 width: 32,
                 height: 32,

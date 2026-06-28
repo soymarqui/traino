@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
@@ -9,8 +9,8 @@ import Button from '@mui/material/Button'
 import Chip from '@mui/material/Chip'
 import TextField from '@mui/material/TextField'
 import MenuItem from '@mui/material/MenuItem'
+import Avatar from '@mui/material/Avatar'
 import Snackbar from '@mui/material/Snackbar'
-import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import LogoutIcon from '@mui/icons-material/Logout'
 import { createClient } from '@/lib/supabase/client'
 import { isAdmin } from '@/lib/admin'
@@ -31,6 +31,10 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [avatar, setAvatar] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const [form, setForm] = useState({
     name: '',
     age: '',
@@ -45,7 +49,9 @@ export default function SettingsPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setEmail(user?.email || '')
       setAdmin(isAdmin(user?.email))
+      setUserId(user?.id ?? null)
       const m = user?.user_metadata ?? {}
+      setAvatar(m.avatar_url ?? '')
       setForm({
         name: m.full_name ?? '',
         age: m.age != null ? String(m.age) : '',
@@ -56,6 +62,27 @@ export default function SettingsPage() {
       setLoading(false)
     })
   }, [])
+
+  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !userId) return
+    setUploading(true)
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+    const path = `${userId}/avatar.${ext}`
+    const { error } = await supabase.storage
+      .from('avatars')
+      .upload(path, file, { upsert: true })
+    if (!error) {
+      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+      const url = `${data.publicUrl}?t=${Date.now()}`
+      await supabase.auth.updateUser({ data: { avatar_url: url } })
+      setAvatar(url)
+      setSaved(true)
+    }
+    setUploading(false)
+  }
+
+  const initial = (form.name || email || '?').trim()[0]?.toUpperCase() ?? '?'
 
   const set = (field: keyof typeof form, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -93,9 +120,30 @@ export default function SettingsPage() {
       </Box>
 
       <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={handlePhoto}
+        />
         <Card>
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <AccountCircleIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
+            <Avatar
+              src={avatar || undefined}
+              onClick={() => fileRef.current?.click()}
+              sx={{
+                width: 64,
+                height: 64,
+                cursor: 'pointer',
+                bgcolor: 'primary.main',
+                color: '#0A0A0A',
+                fontWeight: 700,
+                fontSize: '1.5rem',
+              }}
+            >
+              {initial}
+            </Avatar>
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <Typography
                 variant="body1"
@@ -106,6 +154,16 @@ export default function SettingsPage() {
               {admin && (
                 <Chip label="Admin" size="small" color="primary" sx={{ mt: 0.5 }} />
               )}
+              <Box>
+                <Button
+                  size="small"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  sx={{ mt: 0.5, ml: -0.5 }}
+                >
+                  {uploading ? 'Subiendo...' : 'Cambiar foto'}
+                </Button>
+              </Box>
             </Box>
           </CardContent>
         </Card>

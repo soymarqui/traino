@@ -12,3 +12,7 @@ export function initialOf(user: User | null): string {
   const name = displayName(user)
   return name ? name[0].toUpperCase() : '?'
 }
+
+export function avatarUrl(user: User | null): string | null {
+  return (user?.user_metadata?.avatar_url as string | undefined) || null
+}
