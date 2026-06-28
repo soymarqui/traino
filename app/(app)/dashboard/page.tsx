@@ -3,11 +3,28 @@
 import { useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
+import Button from '@mui/material/Button'
 import Snackbar from '@mui/material/Snackbar'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import { createClient } from '@/lib/supabase/client'
 import { displayName } from '@/lib/user'
 import { useRouter } from 'next/navigation'
 import WorkoutCalendar from './WorkoutCalendar'
+
+const PHRASES = [
+  '¿Qué vamos a entrenar hoy?',
+  '¿De nuevo acá? 🔥',
+  '¿Se viene otro día ganado?',
+  'El que entrena hoy, gana mañana.',
+  'Hora de aparecer.',
+  'Hoy también cuenta. 💪',
+  'Sin excusas, a darle.',
+  'La constancia gana.',
+  'Tu yo del futuro te lo agradece.',
+  'Un día más, un paso más.',
+  'Vamos que se puede. 🚀',
+  'El progreso no se negocia.',
+]
 
 function dateKey(iso: string): string {
   const d = new Date(iso)
@@ -22,10 +39,14 @@ export default function DashboardPage() {
   const [doneByDate, setDoneByDate] = useState<Record<string, string>>({})
   const [plannedDates, setPlannedDates] = useState<string[]>([])
   const [snack, setSnack] = useState('')
+  const [phrase, setPhrase] = useState('')
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
+    // Frase al azar en cada apertura (en cliente, para no romper la hidratación).
+    setPhrase(PHRASES[Math.floor(Math.random() * PHRASES.length)])
+
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setName(displayName(user))
@@ -67,10 +88,23 @@ export default function DashboardPage() {
   return (
     <Box sx={{ minHeight: '100vh', pb: 10 }}>
       {/* Header */}
-      <Box sx={{ px: 3, pt: 4, pb: 4 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>
+      <Box sx={{ px: 3, pt: 4, pb: 3 }}>
+        <Typography variant="body2" color="text.secondary">
           {name ? `Hola, ${name} 💪` : 'Hola 💪'}
         </Typography>
+        <Typography variant="h4" sx={{ fontWeight: 700, mt: 0.5, minHeight: 40 }}>
+          {phrase}
+        </Typography>
+        <Button
+          variant="contained"
+          size="large"
+          fullWidth
+          startIcon={<PlayArrowIcon />}
+          onClick={() => router.push('/train')}
+          sx={{ mt: 2.5, py: 1.5, fontSize: '1.05rem' }}
+        >
+          Empezar entrenamiento
+        </Button>
       </Box>
 
       {/* Calendario */}
