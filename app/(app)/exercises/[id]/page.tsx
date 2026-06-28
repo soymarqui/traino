@@ -111,6 +111,7 @@ export default function ExerciseDetailPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [isFav, setIsFav] = useState(false)
   const [inActiveRoutine, setInActiveRoutine] = useState(false)
+  const [routinesWith, setRoutinesWith] = useState<{ id: string; name: string }[]>([])
   const router = useRouter()
   const params = useParams()
   const exerciseId = params.id as string
@@ -148,6 +149,24 @@ export default function ExerciseDetailPage() {
               .eq('exercise_id', exerciseId)
               .maybeSingle()
               .then(({ data }) => setInActiveRoutine(!!data))
+          })
+
+        // Rutinas (propias) que incluyen este ejercicio.
+        supabase
+          .from('routine_exercises')
+          .select('routine:routines(id, name, owner_id)')
+          .eq('exercise_id', exerciseId)
+          .then(({ data }) => {
+            const seen = new Set<string>()
+            const list: { id: string; name: string }[] = []
+            ;(data || []).forEach((row: any) => {
+              const rt = Array.isArray(row.routine) ? row.routine[0] : row.routine
+              if (rt && rt.owner_id === user.id && !seen.has(rt.id)) {
+                seen.add(rt.id)
+                list.push({ id: rt.id, name: rt.name })
+              }
+            })
+            setRoutinesWith(list)
           })
       }
     })
@@ -356,6 +375,29 @@ export default function ExerciseDetailPage() {
               <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
                 {exercise.notes || 'Todavía no hay descripción para este ejercicio.'}
               </Typography>
+            </Box>
+
+            {/* Rutinas con este ejercicio */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                Rutinas con este ejercicio:
+              </Typography>
+              {routinesWith.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  Todavía no está en ninguna de tus rutinas.
+                </Typography>
+              ) : (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {routinesWith.map((r) => (
+                    <Chip
+                      key={r.id}
+                      label={r.name}
+                      onClick={() => router.push(`/routine/${r.id}`)}
+                      variant="outlined"
+                    />
+                  ))}
+                </Box>
+              )}
             </Box>
           </>
         )}
