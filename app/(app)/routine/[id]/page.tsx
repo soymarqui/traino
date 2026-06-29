@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
@@ -21,6 +21,7 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/Delete'
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import { createClient } from '@/lib/supabase/client'
+import CoverPicker from '@/components/CoverPicker'
 import { Equipment, Routine, RoutineDay, RoutineExercise, RoutineExerciseSet } from '@/types/database'
 import { useRouter, useParams } from 'next/navigation'
 
@@ -59,7 +60,7 @@ export default function RoutineDetailPage() {
   const [deleteDayId, setDeleteDayId] = useState<string | null>(null)
   const [description, setDescription] = useState('')
   const [uploadingCover, setUploadingCover] = useState(false)
-  const coverRef = useRef<HTMLInputElement>(null)
+  const [coverPickerOpen, setCoverPickerOpen] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -99,9 +100,17 @@ export default function RoutineDetailPage() {
     await supabase.from('routines').update({ description: value }).eq('id', routineId)
   }
 
-  const handleCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const setCover = async (url: string) => {
+    await supabase.from('routines').update({ cover_url: url }).eq('id', routineId)
+    setRoutine((prev) => (prev ? { ...prev, cover_url: url } : prev))
+  }
+
+  const pickCover = async (url: string) => {
+    setCoverPickerOpen(false)
+    await setCover(url)
+  }
+
+  const uploadCover = async (file: File) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     setUploadingCover(true)
@@ -110,11 +119,10 @@ export default function RoutineDetailPage() {
     const { error } = await supabase.storage.from('routine-covers').upload(path, file, { upsert: true })
     if (!error) {
       const { data } = supabase.storage.from('routine-covers').getPublicUrl(path)
-      const url = `${data.publicUrl}?t=${Date.now()}`
-      await supabase.from('routines').update({ cover_url: url }).eq('id', routineId)
-      setRoutine((prev) => (prev ? { ...prev, cover_url: url } : prev))
+      await setCover(`${data.publicUrl}?t=${Date.now()}`)
     }
     setUploadingCover(false)
+    setCoverPickerOpen(false)
   }
 
   const setVisibility = async (value: 'private' | 'unlisted' | 'public') => {
@@ -230,9 +238,8 @@ export default function RoutineDetailPage() {
             </TextField>
 
             {/* Portada */}
-            <input ref={coverRef} type="file" accept="image/*" hidden onChange={handleCover} />
             <Box
-              onClick={() => coverRef.current?.click()}
+              onClick={() => setCoverPickerOpen(true)}
               sx={{
                 position: 'relative',
                 width: '100%',
@@ -374,6 +381,14 @@ export default function RoutineDetailPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <CoverPicker
+        open={coverPickerOpen}
+        onClose={() => setCoverPickerOpen(false)}
+        onPick={pickCover}
+        onUpload={uploadCover}
+        uploading={uploadingCover}
+      />
 
       {/* Renombrar rutina */}
       <Dialog open={renameOpen} onClose={() => setRenameOpen(false)} fullWidth maxWidth="xs">

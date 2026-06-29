@@ -19,10 +19,12 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import EditIcon from '@mui/icons-material/Edit'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import AddIcon from '@mui/icons-material/Add'
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import { createClient } from '@/lib/supabase/client'
 import PostComments from '@/components/PostComments'
 import UserAvatar from '@/components/UserAvatar'
+import CoverPicker from '@/components/CoverPicker'
 import { useRouter, useParams } from 'next/navigation'
 
 type Profile = { id: string; handle: string | null; display_name: string | null; avatar_url: string | null }
@@ -42,7 +44,9 @@ type ChallengeRow = {
 export default function GroupPage() {
   const params = useParams()
   const groupId = params.id as string
-  const [group, setGroup] = useState<{ name: string; owner_id: string; visibility?: string } | null>(null)
+  const [group, setGroup] = useState<{ name: string; owner_id: string; visibility?: string; cover_url?: string | null } | null>(null)
+  const [coverPickerOpen, setCoverPickerOpen] = useState(false)
+  const [uploadingCover, setUploadingCover] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [members, setMembers] = useState<Member[]>([])
@@ -73,8 +77,8 @@ export default function GroupPage() {
     const { data: { user } } = await supabase.auth.getUser()
     setUserId(user?.id ?? null)
 
-    const { data: g } = await supabase.from('groups').select('name, owner_id, visibility').eq('id', groupId).maybeSingle()
-    setGroup(g as { name: string; owner_id: string; visibility?: string } | null)
+    const { data: g } = await supabase.from('groups').select('name, owner_id, visibility, cover_url').eq('id', groupId).maybeSingle()
+    setGroup(g as { name: string; owner_id: string; visibility?: string; cover_url?: string | null } | null)
 
     const { data: mem } = await supabase.from('group_members').select('user_id, role').eq('group_id', groupId)
     const members = (mem as Member[]) || []
@@ -206,6 +210,30 @@ export default function GroupPage() {
     router.push('/friends')
   }
 
+  const setGroupCover = async (url: string) => {
+    setGroup((g) => (g ? { ...g, cover_url: url } : g))
+    await supabase.from('groups').update({ cover_url: url }).eq('id', groupId)
+  }
+
+  const pickGroupCover = async (url: string) => {
+    setCoverPickerOpen(false)
+    await setGroupCover(url)
+  }
+
+  const uploadGroupCover = async (file: File) => {
+    if (!userId) return
+    setUploadingCover(true)
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+    const path = `${userId}/group-${groupId}.${ext}`
+    const { error } = await supabase.storage.from('routine-covers').upload(path, file, { upsert: true })
+    if (!error) {
+      const { data } = supabase.storage.from('routine-covers').getPublicUrl(path)
+      await setGroupCover(`${data.publicUrl}?t=${Date.now()}`)
+    }
+    setUploadingCover(false)
+    setCoverPickerOpen(false)
+  }
+
   const setVisibility = async (value: 'public' | 'private') => {
     setGroup((g) => (g ? { ...g, visibility: value } : g))
     await supabase.from('groups').update({ visibility: value }).eq('id', groupId)
@@ -287,6 +315,29 @@ export default function GroupPage() {
           </IconButton>
         )}
       </Box>
+
+      {/* Portada de la comunidad */}
+      {!loading && group && (group.cover_url || isAdmin) && (
+        <Box sx={{ px: 3, pb: 2 }}>
+          <Box
+            onClick={isAdmin ? () => setCoverPickerOpen(true) : undefined}
+            sx={{
+              position: 'relative', width: '100%', aspectRatio: '16 / 9', borderRadius: 3, overflow: 'hidden',
+              cursor: isAdmin ? 'pointer' : 'default', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            {group.cover_url ? (
+              <Box component="img" src={group.cover_url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <Box sx={{ textAlign: 'center', color: 'text.hint' }}>
+                <AddPhotoAlternateIcon sx={{ fontSize: 32 }} />
+                <Typography variant="caption" sx={{ display: 'block' }}>Agregar portada</Typography>
+              </Box>
+            )}
+          </Box>
+        </Box>
+      )}
 
       <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
         {loading && <Typography color="text.secondary">Cargando...</Typography>}
@@ -473,6 +524,14 @@ export default function GroupPage() {
           </>
         )}
       </Box>
+
+      <CoverPicker
+        open={coverPickerOpen}
+        onClose={() => setCoverPickerOpen(false)}
+        onPick={pickGroupCover}
+        onUpload={uploadGroupCover}
+        uploading={uploadingCover}
+      />
 
       {/* Renombrar */}
       <Dialog open={renameOpen} onClose={() => setRenameOpen(false)} fullWidth maxWidth="xs">
