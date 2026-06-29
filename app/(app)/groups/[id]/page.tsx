@@ -47,6 +47,7 @@ export default function GroupPage() {
   const [members, setMembers] = useState<Member[]>([])
   const [profiles, setProfiles] = useState<Record<string, Profile>>({})
   const [posts, setPosts] = useState<Post[]>([])
+  const [likes, setLikes] = useState<Record<string, { count: number; mine: boolean }>>({})
   const [events, setEvents] = useState<EventRow[]>([])
   const [challenges, setChallenges] = useState<ChallengeRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -83,7 +84,22 @@ export default function GroupPage() {
       .select('id, user_id, summary, photo_url, created_at')
       .eq('group_id', groupId)
       .order('created_at', { ascending: false })
-    setPosts((ps as Post[]) || [])
+    const postList = (ps as Post[]) || []
+    setPosts(postList)
+
+    // Likes 💪 de los posts.
+    const postIds = postList.map((p) => p.id)
+    if (postIds.length) {
+      const { data: pl } = await supabase.from('post_likes').select('post_id, user_id').in('post_id', postIds)
+      const map: Record<string, { count: number; mine: boolean }> = {}
+      postIds.forEach((id) => (map[id] = { count: 0, mine: false }))
+      ;(pl || []).forEach((l: { post_id: string; user_id: string }) => {
+        if (!map[l.post_id]) map[l.post_id] = { count: 0, mine: false }
+        map[l.post_id].count++
+        if (l.user_id === user?.id) map[l.post_id].mine = true
+      })
+      setLikes(map)
+    }
 
     // Perfiles de todos los usuarios involucrados.
     const userIds = [...new Set([...members.map((m) => m.user_id), ...((ps as Post[]) || []).map((p) => p.user_id)])]
@@ -225,6 +241,20 @@ export default function GroupPage() {
       await supabase.from('group_event_participants').delete().eq('event_id', ev.id).eq('user_id', userId)
     } else {
       await supabase.from('group_event_participants').insert({ event_id: ev.id, user_id: userId })
+    }
+  }
+
+  const toggleLike = async (postId: string) => {
+    if (!userId) return
+    const cur = likes[postId] ?? { count: 0, mine: false }
+    setLikes((prev) => ({
+      ...prev,
+      [postId]: { count: cur.count + (cur.mine ? -1 : 1), mine: !cur.mine },
+    }))
+    if (cur.mine) {
+      await supabase.from('post_likes').delete().eq('post_id', postId).eq('user_id', userId)
+    } else {
+      await supabase.from('post_likes').upsert({ post_id: postId, user_id: userId }, { onConflict: 'post_id,user_id' })
     }
   }
 
@@ -383,6 +413,16 @@ export default function GroupPage() {
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>{nameOf(p.user_id)}</Typography>
                     </Box>
                     <Typography variant="body2" color="text.secondary">{p.summary || 'Compartió un entrenamiento'}</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, ml: -0.5 }}>
+                      <IconButton size="small" onClick={() => toggleLike(p.id)} aria-label="Me gusta">
+                        <span style={{ fontSize: '1.1rem', opacity: likes[p.id]?.mine ? 1 : 0.4, filter: likes[p.id]?.mine ? 'none' : 'grayscale(1)' }}>
+                          💪
+                        </span>
+                      </IconButton>
+                      <Typography variant="body2" color={likes[p.id]?.mine ? 'primary.main' : 'text.secondary'} sx={{ fontWeight: 600 }}>
+                        {likes[p.id]?.count ?? 0}
+                      </Typography>
+                    </Box>
                   </CardContent>
                 </Card>
               ))}

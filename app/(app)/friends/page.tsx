@@ -11,6 +11,7 @@ import TextField from '@mui/material/TextField'
 import MenuItem from '@mui/material/MenuItem'
 import InputAdornment from '@mui/material/InputAdornment'
 import Button from '@mui/material/Button'
+import IconButton from '@mui/material/IconButton'
 import Switch from '@mui/material/Switch'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Dialog from '@mui/material/Dialog'
@@ -58,6 +59,7 @@ export default function FriendsPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [groups, setGroups] = useState<GroupRow[]>([])
   const [feed, setFeed] = useState<FeedPost[]>([])
+  const [likes, setLikes] = useState<Record<string, { count: number; mine: boolean }>>({})
   const [challenges, setChallenges] = useState<ChallengeRow[]>([])
   const [groupNames, setGroupNames] = useState<Record<string, string>>({})
   const [handles, setHandles] = useState<Record<string, string | null>>({})
@@ -135,6 +137,20 @@ export default function FriendsPage() {
       const h: Record<string, string | null> = {}
       ;(profs || []).forEach((p: { id: string; handle: string | null }) => (h[p.id] = p.handle))
       setHandles(h)
+    }
+
+    // Likes 💪 de los posts del feed.
+    const postIds = feedPosts.map((p) => p.id)
+    if (postIds.length) {
+      const { data: pl } = await supabase.from('post_likes').select('post_id, user_id').in('post_id', postIds)
+      const map: Record<string, { count: number; mine: boolean }> = {}
+      postIds.forEach((id) => (map[id] = { count: 0, mine: false }))
+      ;(pl || []).forEach((l: { post_id: string; user_id: string }) => {
+        if (!map[l.post_id]) map[l.post_id] = { count: 0, mine: false }
+        map[l.post_id].count++
+        if (l.user_id === user?.id) map[l.post_id].mine = true
+      })
+      setLikes(map)
     }
 
     // Mi rutina activa (para "mostrar rutina" en el check-in).
@@ -231,6 +247,20 @@ export default function FriendsPage() {
       router.push(`/groups/${group.id}`)
     }
     setCreating(false)
+  }
+
+  const toggleLike = async (postId: string) => {
+    if (!userId) return
+    const cur = likes[postId] ?? { count: 0, mine: false }
+    setLikes((prev) => ({
+      ...prev,
+      [postId]: { count: cur.count + (cur.mine ? -1 : 1), mine: !cur.mine },
+    }))
+    if (cur.mine) {
+      await supabase.from('post_likes').delete().eq('post_id', postId).eq('user_id', userId)
+    } else {
+      await supabase.from('post_likes').upsert({ post_id: postId, user_id: userId }, { onConflict: 'post_id,user_id' })
+    }
   }
 
   const joinGroup = async (groupId: string) => {
@@ -529,6 +559,16 @@ export default function FriendsPage() {
                     </Typography>
                   </CardContent>
                 </CardActionArea>
+                <Box sx={{ px: 1.5, pb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <IconButton size="small" onClick={() => toggleLike(p.id)} aria-label="Me gusta">
+                    <span style={{ fontSize: '1.1rem', opacity: likes[p.id]?.mine ? 1 : 0.4, filter: likes[p.id]?.mine ? 'none' : 'grayscale(1)' }}>
+                      💪
+                    </span>
+                  </IconButton>
+                  <Typography variant="body2" color={likes[p.id]?.mine ? 'primary.main' : 'text.secondary'} sx={{ fontWeight: 600 }}>
+                    {likes[p.id]?.count ?? 0}
+                  </Typography>
+                </Box>
               </Card>
             ))}
           </Box>
