@@ -45,7 +45,6 @@ type Profile = {
   details_visibility: 'public' | 'friends' | 'hidden'
 }
 
-const GENDER_LABELS: Record<string, string> = { masculino: 'Masculino', femenino: 'Femenino', no_binarie: 'No binarie' }
 
 export default function UserProfilePage() {
   const params = useParams()
@@ -263,7 +262,7 @@ export default function UserProfilePage() {
 
   const detailChips: { label: string }[] = []
   if (profile && detailsVisible && profile.age) detailChips.push({ label: `${profile.age} años` })
-  if (profile && detailsVisible && profile.gender) detailChips.push({ label: GENDER_LABELS[profile.gender] ?? profile.gender })
+  // El género no se muestra en el perfil (la identidad GymBro/Sis/Pal ya lo comunica).
 
   return (
     <Box sx={{ minHeight: '100vh', pb: 12 }}>
@@ -302,13 +301,15 @@ export default function UserProfilePage() {
           {/* Portada */}
           <Box
             sx={{
-              height: 170, width: '100%',
+              position: 'relative', height: 170, width: '100%',
               background: profile.cover_url ? undefined : 'linear-gradient(135deg, #1a1a1a, #0A0A0A)',
             }}
           >
             {profile.cover_url && (
               <Box component="img" src={profile.cover_url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             )}
+            {/* Gradiente a negro para fundir con el fondo */}
+            <Box sx={{ position: 'absolute', inset: 0, background: (t) => `linear-gradient(to bottom, transparent 30%, ${t.palette.background.default})` }} />
           </Box>
 
           {/* Cabecera centrada */}
@@ -379,7 +380,7 @@ export default function UserProfilePage() {
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
                     <Chip
                       icon={<HowToRegIcon />}
-                      label={`Tu ${profile.identity ? IDENTITY_LABELS[profile.identity] ?? profile.identity : 'amigo'}`}
+                      label={`Tu ${(profile.identity && IDENTITY_LABELS[profile.identity]) || 'GymPal'}`}
                       color="primary"
                     />
                     <Button

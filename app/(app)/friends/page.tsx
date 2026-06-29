@@ -26,12 +26,8 @@ import AddIcon from '@mui/icons-material/Add'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import { createClient } from '@/lib/supabase/client'
-import PostComments from '@/components/PostComments'
+import CheckinCard from '@/components/CheckinCard'
 import { useRouter } from 'next/navigation'
-
-function feedDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
-}
 
 type GroupRow = { id: string; name: string; role: string }
 type FeedPost = {
@@ -44,6 +40,7 @@ type FeedPost = {
   workout_id: string | null
   workoutDate?: string | null
   routineName?: string | null
+  routineId?: string | null
 }
 type ChallengeRow = {
   id: string
@@ -65,6 +62,7 @@ export default function FriendsPage() {
   const [challenges, setChallenges] = useState<ChallengeRow[]>([])
   const [groupNames, setGroupNames] = useState<Record<string, string>>({})
   const [handles, setHandles] = useState<Record<string, string | null>>({})
+  const [authors, setAuthors] = useState<Record<string, { handle: string | null; display_name: string | null; avatar_url: string | null }>>({})
   const [order, setOrder] = useState<'reciente' | 'relevante'>('reciente')
   const [snack, setSnack] = useState('')
 
@@ -124,22 +122,27 @@ export default function FriendsPage() {
     // Feed de posts.
     const { data: posts } = await supabase
       .from('group_posts')
-      .select('id, group_id, user_id, summary, photo_url, created_at, workout_id, workout:workouts(started_at, routine:routines(name))')
+      .select('id, group_id, user_id, summary, photo_url, created_at, workout_id, workout:workouts(started_at, routine:routines(id, name))')
       .order('created_at', { ascending: false })
       .limit(80)
     const feedPosts = ((posts as any[]) || []).map((p) => {
       const w = Array.isArray(p.workout) ? p.workout[0] : p.workout
       const r = w && (Array.isArray(w.routine) ? w.routine[0] : w.routine)
-      return { ...p, workoutDate: w?.started_at ?? null, routineName: r?.name ?? null } as FeedPost
+      return { ...p, workoutDate: w?.started_at ?? null, routineName: r?.name ?? null, routineId: r?.id ?? null } as FeedPost
     })
     setFeed(feedPosts)
 
     const uids = [...new Set(feedPosts.map((p) => p.user_id))]
     if (uids.length) {
-      const { data: profs } = await supabase.from('profiles').select('id, handle').in('id', uids)
+      const { data: profs } = await supabase.from('profiles').select('id, handle, display_name, avatar_url').in('id', uids)
       const h: Record<string, string | null> = {}
-      ;(profs || []).forEach((p: { id: string; handle: string | null }) => (h[p.id] = p.handle))
+      const a: Record<string, { handle: string | null; display_name: string | null; avatar_url: string | null }> = {}
+      ;(profs || []).forEach((p: { id: string; handle: string | null; display_name: string | null; avatar_url: string | null }) => {
+        h[p.id] = p.handle
+        a[p.id] = { handle: p.handle, display_name: p.display_name, avatar_url: p.avatar_url }
+      })
       setHandles(h)
+      setAuthors(a)
     }
 
     // Likes 💪 de los posts del feed.
@@ -488,54 +491,26 @@ export default function FriendsPage() {
               />
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {orderedFeed.map((p) => (
-              <Card key={p.id}>
-                <CardActionArea
-                  onClick={() =>
-                    p.group_id
-                      ? router.push(`/groups/${p.group_id}`)
-                      : handles[p.user_id] && router.push(`/u/${handles[p.user_id]}`)
-                  }
-                >
-                  {p.photo_url && (
-                    <Box component="img" src={p.photo_url} alt="" sx={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
-                  )}
-                  <CardContent sx={{ py: 1.5 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {handles[p.user_id] ? `@${handles[p.user_id]}` : 'usuario'}
-                      <Typography component="span" variant="body2" color="text.secondary">
-                        {' · '}{p.group_id ? groupNames[p.group_id] ?? 'grupo' : 'check-in'}
-                      </Typography>
-                    </Typography>
-                    <Typography variant="caption" color="text.hint">
-                      {feedDate(p.workoutDate || p.created_at)}
-                      {p.routineName ? ` · 📋 ${p.routineName}` : ''}
-                    </Typography>
-                    {p.summary && (
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-                        {p.summary}
-                      </Typography>
-                    )}
-                  </CardContent>
-                </CardActionArea>
-                <Box sx={{ px: 1.5, pb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <IconButton size="small" onClick={() => toggleLike(p.id)} aria-label="Me gusta">
-                    <span style={{ fontSize: '1.1rem', opacity: likes[p.id]?.mine ? 1 : 0.4, filter: likes[p.id]?.mine ? 'none' : 'grayscale(1)' }}>
-                      💪
-                    </span>
-                  </IconButton>
-                  <Typography variant="body2" color={likes[p.id]?.mine ? 'primary.main' : 'text.secondary'} sx={{ fontWeight: 600 }}>
-                    {likes[p.id]?.count ?? 0}
-                  </Typography>
-                  <PostComments
-                    postId={p.id}
-                    userId={userId}
-                    count={commentCounts[p.id] ?? 0}
-                    onCount={(n) => setCommentCounts((prev) => ({ ...prev, [p.id]: n }))}
-                  />
-                </Box>
-              </Card>
+              <CheckinCard
+                key={p.id}
+                post={p}
+                authorHandle={authors[p.user_id]?.handle ?? handles[p.user_id] ?? null}
+                authorName={authors[p.user_id]?.display_name ?? null}
+                authorAvatar={authors[p.user_id]?.avatar_url ?? null}
+                userId={userId}
+                likeCount={likes[p.id]?.count ?? 0}
+                liked={!!likes[p.id]?.mine}
+                onToggleLike={() => toggleLike(p.id)}
+                commentCount={commentCounts[p.id] ?? 0}
+                onCommentCount={(n) => setCommentCounts((prev) => ({ ...prev, [p.id]: n }))}
+                onOpenProfile={() => {
+                  const h = authors[p.user_id]?.handle ?? handles[p.user_id]
+                  if (h) router.push(`/u/${h}`)
+                }}
+                onOpenRoutine={() => p.routineId && router.push(`/r/${p.routineId}`)}
+              />
             ))}
           </Box>
         </Box>
