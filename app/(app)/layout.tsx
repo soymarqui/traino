@@ -121,7 +121,7 @@ export default function AppLayout({
           borderColor: 'divider',
         }}
       >
-        <Toolbar sx={{ gap: 1 }}>
+        <Toolbar sx={{ gap: 1, maxWidth: 600, mx: 'auto', width: '100%' }}>
           <IconButton
             edge="start"
             onClick={() => setDrawerOpen(true)}
@@ -216,7 +216,9 @@ export default function AppLayout({
         </Box>
       </Drawer>
 
-      <RestTimerProvider>{children}</RestTimerProvider>
+      <RestTimerProvider>
+        <Box sx={{ maxWidth: 600, mx: 'auto', width: '100%' }}>{children}</Box>
+      </RestTimerProvider>
 
       {/* Navegación inferior flotante (pill) */}
       <Paper
@@ -224,8 +226,9 @@ export default function AppLayout({
         sx={{
           position: 'fixed',
           bottom: 'calc(16px + env(safe-area-inset-bottom))',
-          left: 16,
-          right: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 'min(568px, calc(100% - 32px))',
           zIndex: 10,
           borderRadius: 999,
           border: '1px solid',

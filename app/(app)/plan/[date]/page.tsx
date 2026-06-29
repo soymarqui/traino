@@ -165,7 +165,7 @@ export default function PlanDayPage() {
           })}
       </Box>
 
-      <Box sx={{ position: 'fixed', bottom: '96px', left: '16px', right: '16px', zIndex: 11 }}>
+      <Box sx={{ position: 'fixed', bottom: '96px', left: '50%', transform: 'translateX(-50%)', width: 'min(568px, calc(100% - 32px))', zIndex: 11 }}>
         <Button variant="contained" size="large" fullWidth onClick={save} disabled={saving}>
           {saving
             ? 'Guardando...'

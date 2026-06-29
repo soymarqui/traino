@@ -61,7 +61,7 @@ export default function WorkoutCalendar({
   }
 
   return (
-    <Card sx={{ p: 2 }}>
+    <Card sx={{ p: 2, maxWidth: 380, mx: 'auto', width: '100%' }}>
       {/* Header mes */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
         <IconButton size="small" onClick={prevMonth}>
