@@ -35,6 +35,7 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [myGroupIds, setMyGroupIds] = useState<string[]>([])
+  const [friendBy, setFriendBy] = useState<Record<string, 'friends' | 'sent' | 'received'>>({})
   const [userResults, setUserResults] = useState<UserResult[]>([])
   const [results, setResults] = useState<Result[]>([])
   const [groupResults, setGroupResults] = useState<GroupResult[]>([])
@@ -51,6 +52,18 @@ export default function SearchPage() {
       if (user) {
         const { data: mem } = await supabase.from('group_members').select('group_id').eq('user_id', user.id)
         setMyGroupIds((mem || []).map((m: { group_id: string }) => m.group_id))
+
+        // Estado de amistad con cada usuario (para mostrar en los resultados).
+        const { data: fr } = await supabase
+          .from('friendships')
+          .select('requester_id, addressee_id, status')
+          .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+        const map: Record<string, 'friends' | 'sent' | 'received'> = {}
+        ;(fr || []).forEach((f: { requester_id: string; addressee_id: string; status: string }) => {
+          const other = f.requester_id === user.id ? f.addressee_id : f.requester_id
+          map[other] = f.status === 'accepted' ? 'friends' : f.requester_id === user.id ? 'sent' : 'received'
+        })
+        setFriendBy(map)
       }
     }
     load()
@@ -217,7 +230,10 @@ export default function SearchPage() {
                       </Box>
                       {u.handle && <Typography variant="caption" color="text.secondary">@{u.handle}</Typography>}
                     </Box>
-                    <PersonIcon sx={{ color: 'text.secondary' }} />
+                    {friendBy[u.id] === 'friends' && <Chip label="Amigos" size="small" color="primary" />}
+                    {friendBy[u.id] === 'sent' && <Chip label="Pendiente" size="small" />}
+                    {friendBy[u.id] === 'received' && <Chip label="Te solicitó" size="small" color="primary" variant="outlined" />}
+                    {!friendBy[u.id] && <PersonIcon sx={{ color: 'text.secondary' }} />}
                   </CardContent>
                 </CardActionArea>
               </Card>
