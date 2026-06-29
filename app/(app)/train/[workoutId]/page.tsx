@@ -30,6 +30,8 @@ import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import AddAPhotoIcon from '@mui/icons-material/AddAPhoto'
 import CloseIcon from '@mui/icons-material/Close'
 import DeleteIcon from '@mui/icons-material/Delete'
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
+import { equipmentLabel } from '@/lib/equipment'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useParams } from 'next/navigation'
 
@@ -88,6 +90,7 @@ type SetRow = {
 type ExerciseWithSets = {
   id: string
   name: string
+  muscle_id: string | null
   reps_min: number
   reps_max: number
   rest_seconds: number
@@ -96,6 +99,18 @@ type ExerciseWithSets = {
   distance_unit: string | null
   muscle?: { name: string; slug: string } | null
   sets: SetRow[]
+}
+
+type Variant = {
+  id: string
+  name: string
+  equipment: string[] | null
+  reps_min: number | null
+  reps_max: number | null
+  rest_seconds: number | null
+  unit: string
+  distance_unit: string | null
+  muscle?: { name: string; slug: string } | null
 }
 
 export default function WorkoutPage() {
@@ -133,6 +148,9 @@ export default function WorkoutPage() {
   const [pressTarget, setPressTarget] = useState<SetRow | null>(null)
   const pressTimer = useRef<number | null>(null)
   const longPressed = useRef(false)
+  const [variantFor, setVariantFor] = useState<ExerciseWithSets | null>(null)
+  const [variants, setVariants] = useState<Variant[]>([])
+  const [loadingVariants, setLoadingVariants] = useState(false)
   const router = useRouter()
   const params = useParams()
   const workoutId = params.workoutId as string
@@ -187,7 +205,7 @@ export default function WorkoutPage() {
 
     const { data: sets } = await supabase
       .from('sets')
-      .select('*, exercise:exercises(id, name, reps_min, reps_max, rest_seconds, is_warmup, unit, distance_unit, muscle:muscles(name, slug))')
+      .select('*, exercise:exercises(id, name, muscle_id, reps_min, reps_max, rest_seconds, is_warmup, unit, distance_unit, muscle:muscles(name, slug))')
       .eq('workout_id', workoutId)
       .order('set_number')
 
@@ -365,6 +383,63 @@ export default function WorkoutPage() {
       .from('sets')
       .update({ completed: next })
       .in('id', ex.sets.map((s) => s.id))
+  }
+
+  // Buscar variantes: ejercicios activos del mismo músculo principal.
+  const openVariants = async (ex: ExerciseWithSets) => {
+    setVariantFor(ex)
+    setVariants([])
+    if (!ex.muscle_id) return
+    setLoadingVariants(true)
+    const { data } = await supabase
+      .from('exercises')
+      .select('id, name, equipment, reps_min, reps_max, rest_seconds, unit, distance_unit, muscle:muscles(name, slug)')
+      .eq('muscle_id', ex.muscle_id)
+      .eq('active', true)
+      .neq('id', ex.id)
+      .order('name')
+    setVariants((data as unknown as Variant[]) || [])
+    setLoadingVariants(false)
+  }
+
+  // Reemplaza el ejercicio actual por la variante SOLO en esta sesión (no toca la rutina).
+  const chooseVariant = async (v: Variant) => {
+    if (!variantFor) return
+    const oldId = variantFor.id
+    await supabase
+      .from('sets')
+      .update({ exercise_id: v.id, reps_target: v.reps_min, weight: null, reps_actual: null, completed: false, feeling: null })
+      .eq('workout_id', workoutId)
+      .eq('exercise_id', oldId)
+    setExercises((prev) =>
+      prev.map((ex) =>
+        ex.id === oldId
+          ? {
+              id: v.id,
+              name: v.name,
+              muscle_id: variantFor.muscle_id,
+              reps_min: v.reps_min ?? 0,
+              reps_max: v.reps_max ?? 0,
+              rest_seconds: v.rest_seconds ?? ex.rest_seconds,
+              is_warmup: ex.is_warmup,
+              unit: v.unit,
+              distance_unit: v.distance_unit,
+              muscle: v.muscle ?? ex.muscle,
+              sets: ex.sets.map((s) => ({
+                ...s,
+                exercise_id: v.id,
+                reps_target: v.reps_min,
+                weight: null,
+                reps_actual: null,
+                completed: false,
+                feeling: null,
+              })),
+            }
+          : ex
+      )
+    )
+    if (expandedId === oldId) setExpandedId(v.id)
+    setVariantFor(null)
   }
 
   // ¿El ejercicio difiere de la rutina activa (cantidad de series o reps)?
@@ -863,6 +938,9 @@ export default function WorkoutPage() {
               <Button size="small" color="inherit" onClick={() => toggleExercise(exercise)} sx={{ mt: 1, ml: 1 }}>
                 {exercise.sets.every((s) => s.completed) ? 'Desmarcar todo' : 'Marcar todo'}
               </Button>
+              <Button size="small" color="inherit" startIcon={<SwapHorizIcon />} onClick={() => openVariants(exercise)} sx={{ mt: 1, ml: 1 }}>
+                Buscar variante
+              </Button>
               {routineDiffers(exercise) && (
                 <Button
                   size="small"
@@ -1058,6 +1136,44 @@ export default function WorkoutPage() {
             Guardar
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Buscar variante */}
+      <Dialog open={!!variantFor} onClose={() => setVariantFor(null)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          Buscar variante
+          <Typography variant="body2" color="text.secondary">
+            Mismo músculo{variantFor?.muscle?.name ? `: ${variantFor.muscle.name}` : ''}
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1, pb: 2 }}>
+          {loadingVariants && <Typography variant="body2" color="text.secondary">Buscando...</Typography>}
+          {!loadingVariants && variants.length === 0 && (
+            <Typography variant="body2" color="text.secondary">No hay otras variantes para este músculo.</Typography>
+          )}
+          {variants.map((v) => (
+            <Box
+              key={v.id}
+              onClick={() => chooseVariant(v)}
+              sx={{
+                display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 2, cursor: 'pointer',
+                border: '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>{v.name}</Typography>
+                <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
+                  {(v.equipment ?? []).length > 0 ? (
+                    (v.equipment ?? []).map((eq) => <Chip key={eq} label={equipmentLabel(eq)} size="small" sx={{ opacity: 0.8 }} />)
+                  ) : (
+                    <Chip label="Sin equipo" size="small" sx={{ opacity: 0.8 }} />
+                  )}
+                </Box>
+              </Box>
+              <Button size="small" variant="contained">Usar</Button>
+            </Box>
+          ))}
+        </DialogContent>
       </Dialog>
 
       {/* Long-press: eliminar serie */}
