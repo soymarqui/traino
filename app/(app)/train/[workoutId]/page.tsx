@@ -28,6 +28,8 @@ import DialogActions from '@mui/material/DialogActions'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
 import AddAPhotoIcon from '@mui/icons-material/AddAPhoto'
+import CloseIcon from '@mui/icons-material/Close'
+import DeleteIcon from '@mui/icons-material/Delete'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useParams } from 'next/navigation'
 
@@ -128,6 +130,9 @@ export default function WorkoutPage() {
   const [distanceVal, setDistanceVal] = useState('')
   const [distUnit, setDistUnit] = useState<'km' | 'm'>('m')
   const [feeling, setFeeling] = useState(3)
+  const [pressTarget, setPressTarget] = useState<SetRow | null>(null)
+  const pressTimer = useRef<number | null>(null)
+  const longPressed = useRef(false)
   const router = useRouter()
   const params = useParams()
   const workoutId = params.workoutId as string
@@ -395,14 +400,32 @@ export default function WorkoutPage() {
     setRoutineRef((prev) => ({ ...prev, [ex.id]: ref }))
   }
 
-  const deleteSet = async () => {
-    if (!marking) return
-    const setId = marking.set.id
+  const deleteSetById = async (setId: string) => {
     setExercises((prev) =>
       prev.map((ex) => ({ ...ex, sets: ex.sets.filter((s) => s.id !== setId) }))
     )
-    setMarking(null)
+    if (marking?.set.id === setId) setMarking(null)
+    setPressTarget(null)
     await supabase.from('sets').delete().eq('id', setId)
+  }
+
+  const deleteSet = async () => {
+    if (marking) await deleteSetById(marking.set.id)
+  }
+
+  // Long-press sobre una serie → confirmación de borrado sin abrirla.
+  const startPress = (set: SetRow) => {
+    longPressed.current = false
+    pressTimer.current = window.setTimeout(() => {
+      longPressed.current = true
+      setPressTarget(set)
+    }, 500)
+  }
+  const endPress = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current)
+      pressTimer.current = null
+    }
   }
 
   const addSet = async (ex: ExerciseWithSets) => {
@@ -772,7 +795,18 @@ export default function WorkoutPage() {
                 {exercise.sets.map((set) => (
                   <Box
                     key={set.id}
-                    onClick={() => openMark(set, exercise)}
+                    onClick={() => {
+                      if (longPressed.current) {
+                        longPressed.current = false
+                        return
+                      }
+                      openMark(set, exercise)
+                    }}
+                    onMouseDown={() => startPress(set)}
+                    onMouseUp={endPress}
+                    onMouseLeave={endPress}
+                    onTouchStart={() => startPress(set)}
+                    onTouchEnd={endPress}
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
@@ -780,6 +814,7 @@ export default function WorkoutPage() {
                       p: 1,
                       borderRadius: 2,
                       cursor: 'pointer',
+                      userSelect: 'none',
                       bgcolor: set.completed ? 'action.selected' : 'transparent',
                       '&:hover': { bgcolor: 'action.hover' },
                     }}
@@ -895,11 +930,23 @@ export default function WorkoutPage() {
 
       {/* Marcar serie como hecha */}
       <Dialog open={!!marking} onClose={() => setMarking(null)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700 }}>
-          {marking?.exName}
-          <Typography variant="body2" color="text.secondary">
-            Serie {marking?.set.set_number}
-          </Typography>
+        <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            {marking?.exName}
+            <Typography variant="body2" color="text.secondary">
+              Serie {marking?.set.set_number}
+            </Typography>
+          </Box>
+          <IconButton
+            aria-label="Eliminar serie"
+            onClick={deleteSet}
+            sx={{ color: 'error.main' }}
+          >
+            <DeleteIcon />
+          </IconButton>
+          <IconButton aria-label="Cerrar" onClick={() => setMarking(null)}>
+            <CloseIcon />
+          </IconButton>
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
           <TextField
@@ -1000,19 +1047,31 @@ export default function WorkoutPage() {
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button color="error" onClick={deleteSet} sx={{ mr: 'auto' }}>
-            Eliminar serie
-          </Button>
           {marking?.set.completed && (
-            <Button color="inherit" onClick={() => marking && unmarkSet(marking.set.id)}>
+            <Button color="inherit" onClick={() => marking && unmarkSet(marking.set.id)} sx={{ mr: 'auto' }}>
               Desmarcar
             </Button>
           )}
-          <Button color="inherit" onClick={() => setMarking(null)}>
-            Cancelar
-          </Button>
           <Button variant="contained" onClick={saveMark}>
             Guardar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Long-press: eliminar serie */}
+      <Dialog open={!!pressTarget} onClose={() => setPressTarget(null)} fullWidth maxWidth="xs">
+        <DialogTitle>Eliminar serie</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            ¿Eliminar la serie {pressTarget?.set_number}? Esta acción no se puede deshacer.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setPressTarget(null)}>
+            Cancelar
+          </Button>
+          <Button color="error" onClick={() => pressTarget && deleteSetById(pressTarget.id)}>
+            Eliminar
           </Button>
         </DialogActions>
       </Dialog>
