@@ -52,13 +52,14 @@ export function makeTheme(mode: ColorMode) {
       divider: dividerColor,
     },
     typography: {
-      fontFamily: '"Inter", "Roboto", "Helvetica", sans-serif',
-      h1: { fontWeight: 700 },
-      h2: { fontWeight: 700 },
-      h3: { fontWeight: 600 },
-      h4: { fontWeight: 600 },
-      h5: { fontWeight: 600 },
-      h6: { fontWeight: 600 },
+      fontFamily: 'var(--font-instrument), "Inter", "Helvetica", sans-serif',
+      // Títulos pesados y con tracking levemente amplio (look "black & wide").
+      h1: { fontWeight: 800, letterSpacing: '0.01em' },
+      h2: { fontWeight: 800, letterSpacing: '0.01em' },
+      h3: { fontWeight: 800, letterSpacing: '0.01em' },
+      h4: { fontWeight: 800, letterSpacing: '0.01em' },
+      h5: { fontWeight: 800, letterSpacing: '0.01em' },
+      h6: { fontWeight: 700, letterSpacing: '0.01em' },
     },
     shape: {
       borderRadius: 16,

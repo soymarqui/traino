@@ -1,8 +1,11 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Instrument_Sans } from 'next/font/google'
 import ThemeRegistry from '@/components/ThemeRegistry'
 
-const inter = Inter({ subsets: ['latin'] })
+const instrumentSans = Instrument_Sans({
+  subsets: ['latin'],
+  variable: '--font-instrument',
+})
 
 export const metadata: Metadata = {
   title: 'Traino',
@@ -16,7 +19,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={instrumentSans.variable} suppressHydrationWarning>
         <ThemeRegistry>
           {children}
         </ThemeRegistry>

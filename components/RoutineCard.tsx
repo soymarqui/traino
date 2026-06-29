@@ -70,7 +70,7 @@ export default function RoutineCard({
         />
       )}
       <Box sx={{ position: 'relative', p: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700, color: hasCover ? '#fff' : 'text.primary' }}>
+        <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.01em', color: hasCover ? '#fff' : 'text.primary' }}>
           {name}
         </Typography>
 
