@@ -191,6 +191,18 @@ export default function AccountPage() {
     setSaved(true)
   }
 
+  const saveInstagramVis = async (v: 'public' | 'contacts' | 'hidden') => {
+    setInstagramVis(v)
+    await supabase.from('profiles').upsert({ id: userId, instagram_visibility: v })
+    setSaved(true)
+  }
+
+  const saveDetailsVis = async (v: 'public' | 'friends' | 'hidden') => {
+    setDetailsVis(v)
+    await supabase.from('profiles').upsert({ id: userId, details_visibility: v })
+    setSaved(true)
+  }
+
   const handleSave = async () => {
     setError('')
     const cleanHandle = form.handle.trim().toLowerCase()
@@ -340,89 +352,7 @@ export default function AccountPage() {
           </CardContent>
         </Card>
 
-        {/* Privacidad */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-            Privacidad
-          </Typography>
-          <Card>
-            <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <FormControlLabel
-                control={<Switch checked={isPublic} onChange={(e) => savePrivacy({ is_public: e.target.checked })} disabled={loading} />}
-                label="Perfil público"
-              />
-              <Typography variant="caption" color="text.secondary" sx={{ mt: -1, ml: 6 }}>
-                {isPublic ? 'Tu perfil aparece en búsquedas y es visible para la comunidad.' : 'Tu perfil es privado: no aparece en búsquedas.'}
-              </Typography>
-              <FormControlLabel
-                control={<Switch checked={allowAdd} onChange={(e) => savePrivacy({ allow_community_add: e.target.checked })} disabled={loading} />}
-                label="Permitir que me agreguen a comunidades"
-                sx={{ mt: 1 }}
-              />
-              <Typography variant="caption" color="text.secondary" sx={{ mt: -1, ml: 6 }}>
-                {allowAdd ? 'Los admins pueden sumarte a sus comunidades.' : 'Solo te podés unir vos mismo a una comunidad.'}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Box>
-
-        {/* Integraciones */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-            Integraciones
-          </Typography>
-          <Card sx={{ opacity: 0.6 }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  🎧 Vincular con Spotify
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Tu música mientras entrenás.
-                </Typography>
-              </Box>
-              <Chip label="Próximamente" size="small" />
-            </CardContent>
-          </Card>
-        </Box>
-
-        {/* Certificación */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-            Certificación
-          </Typography>
-          <Card>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <VerifiedIcon sx={{ color: isCertified ? 'primary.main' : 'text.secondary' }} />
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                  {isCertified ? 'Perfil certificado' : 'Profesores y entrenadores'}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {isCertified
-                    ? 'Tu perfil muestra el badge de verificación.'
-                    : certStatus === 'pending'
-                    ? 'Tu solicitud está en revisión.'
-                    : certStatus === 'rejected'
-                    ? 'Tu solicitud fue rechazada. Podés volver a enviarla.'
-                    : 'Solicitá la certificación adjuntando tu título o certificado.'}
-                </Typography>
-              </Box>
-              {!isCertified && certStatus !== 'pending' && (
-                <Button size="small" variant="outlined" onClick={() => setCertOpen(true)}>
-                  Solicitar
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-          {isAdmin(email) && (
-            <Button size="small" onClick={() => router.push('/admin/certifications')} sx={{ alignSelf: 'flex-start' }}>
-              Panel de certificaciones (admin)
-            </Button>
-          )}
-        </Box>
-
-        {/* Datos del perfil */}
+        {/* 1) Mi perfil */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
             Mi perfil
@@ -518,33 +448,117 @@ export default function AccountPage() {
             slotProps={{ input: { startAdornment: <span style={{ color: '#888', marginRight: 2 }}>@</span> } }}
           />
 
-          <TextField
-            select
-            label="Visibilidad del Instagram"
-            value={instagramVis}
-            onChange={(e) => setInstagramVis(e.target.value as 'public' | 'contacts' | 'hidden')}
-            fullWidth
-          >
-            <MenuItem value="public">🌐 Público (cualquiera)</MenuItem>
-            <MenuItem value="contacts">👥 Solo GymBros/GymSis/GymPals</MenuItem>
-            <MenuItem value="hidden">🙈 Oculto</MenuItem>
-          </TextField>
-
-          <TextField
-            select
-            label="Visibilidad de tus datos (edad, género)"
-            value={detailsVis}
-            onChange={(e) => setDetailsVis(e.target.value as 'public' | 'friends' | 'hidden')}
-            fullWidth
-          >
-            <MenuItem value="public">🌐 Público (cualquiera)</MenuItem>
-            <MenuItem value="friends">👥 Solo amigos</MenuItem>
-            <MenuItem value="hidden">🙈 Oculto</MenuItem>
-          </TextField>
-
           <Button variant="contained" onClick={handleSave} disabled={saving || loading}>
             {saving ? 'Guardando...' : 'Guardar perfil'}
           </Button>
+        </Box>
+
+        {/* 2) Certificación */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+            Certificación
+          </Typography>
+          <Card>
+            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <VerifiedIcon sx={{ color: isCertified ? 'primary.main' : 'text.secondary' }} />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {isCertified ? 'Perfil certificado' : 'Profesores y entrenadores'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {isCertified
+                    ? 'Tu perfil muestra el badge de verificación.'
+                    : certStatus === 'pending'
+                    ? 'Tu solicitud está en revisión.'
+                    : certStatus === 'rejected'
+                    ? 'Tu solicitud fue rechazada. Podés volver a enviarla.'
+                    : 'Solicitá la certificación adjuntando tu título o certificado.'}
+                </Typography>
+              </Box>
+              {!isCertified && certStatus !== 'pending' && (
+                <Button size="small" variant="outlined" onClick={() => setCertOpen(true)}>
+                  Solicitar
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+          {isAdmin(email) && (
+            <Button size="small" onClick={() => router.push('/admin/certifications')} sx={{ alignSelf: 'flex-start' }}>
+              Panel de certificaciones (admin)
+            </Button>
+          )}
+        </Box>
+
+        {/* 3) Privacidad (perfil + visibilidad de IG y datos) */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+            Privacidad
+          </Typography>
+          <Card>
+            <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <FormControlLabel
+                control={<Switch checked={isPublic} onChange={(e) => savePrivacy({ is_public: e.target.checked })} disabled={loading} />}
+                label="Perfil público"
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ mt: -1, ml: 6 }}>
+                {isPublic ? 'Tu perfil aparece en búsquedas y es visible para la comunidad.' : 'Tu perfil es privado: no aparece en búsquedas.'}
+              </Typography>
+              <FormControlLabel
+                control={<Switch checked={allowAdd} onChange={(e) => savePrivacy({ allow_community_add: e.target.checked })} disabled={loading} />}
+                label="Permitir que me agreguen a comunidades"
+                sx={{ mt: 1 }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ mt: -1, ml: 6 }}>
+                {allowAdd ? 'Los admins pueden sumarte a sus comunidades.' : 'Solo te podés unir vos mismo a una comunidad.'}
+              </Typography>
+
+              <TextField
+                select
+                label="Visibilidad del Instagram"
+                value={instagramVis}
+                onChange={(e) => saveInstagramVis(e.target.value as 'public' | 'contacts' | 'hidden')}
+                fullWidth
+                sx={{ mt: 2 }}
+              >
+                <MenuItem value="public">🌐 Público (cualquiera)</MenuItem>
+                <MenuItem value="contacts">👥 Solo GymBros/GymSis/GymPals</MenuItem>
+                <MenuItem value="hidden">🙈 Oculto</MenuItem>
+              </TextField>
+
+              <TextField
+                select
+                label="Visibilidad de tus datos (edad, género)"
+                value={detailsVis}
+                onChange={(e) => saveDetailsVis(e.target.value as 'public' | 'friends' | 'hidden')}
+                fullWidth
+                sx={{ mt: 1 }}
+              >
+                <MenuItem value="public">🌐 Público (cualquiera)</MenuItem>
+                <MenuItem value="friends">👥 Solo amigos</MenuItem>
+                <MenuItem value="hidden">🙈 Oculto</MenuItem>
+              </TextField>
+            </CardContent>
+          </Card>
+        </Box>
+
+        {/* 4) Integraciones */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+            Integraciones
+          </Typography>
+          <Card sx={{ opacity: 0.6 }}>
+            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  🎧 Vincular con Spotify
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Tu música mientras entrenás.
+                </Typography>
+              </Box>
+              <Chip label="Próximamente" size="small" />
+            </CardContent>
+          </Card>
         </Box>
 
         <Button color="error" fullWidth onClick={() => setDeleteOpen(true)} sx={{ mt: 1 }}>
