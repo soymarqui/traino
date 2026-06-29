@@ -594,11 +594,9 @@ export default function WorkoutPage() {
       if (existing) {
         setCheckinPostId(existing.id)
       } else {
-        const done = exercises.reduce((a, ex) => a + ex.sets.filter((s) => s.completed).length, 0)
-        const summary = `${exercises.length} ejercicios · ${done} series`
         const { data: post } = await supabase
           .from('group_posts')
-          .insert({ user_id: userId, workout_id: workoutId, group_id: null, summary, photo_url: photoUrl || null })
+          .insert({ user_id: userId, workout_id: workoutId, group_id: null, summary: null, photo_url: photoUrl || null })
           .select('id')
           .single()
         if (post) setCheckinPostId(post.id)
@@ -711,7 +709,7 @@ export default function WorkoutPage() {
     const parts: string[] = []
     if (ciMessage.trim()) parts.push(ciMessage.trim())
     if (tagged.length) parts.push('con ' + tagged.map((t) => `@${t.handle}`).join(' '))
-    const summary = parts.join(' · ') || `${exercises.length} ejercicios · ${completedSets} series`
+    const summary = parts.length ? parts.join(' · ') : null
 
     const base = { user_id: userId, workout_id: workoutId, summary, photo_url: photoUrl || null }
     // El check-in personal ya existe (auto-creado al finalizar): lo actualizamos.

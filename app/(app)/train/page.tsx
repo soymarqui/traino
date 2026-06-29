@@ -52,6 +52,7 @@ function formatDateLabel(d: string): string {
 
 function TrainInner() {
   const [routineName, setRoutineName] = useState<string | null>(null)
+  const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null)
   const [days, setDays] = useState<DayRow[]>([])
   const [items, setItems] = useState<CustomItem[]>([])
   const [selected, setSelected] = useState<string[]>([])
@@ -102,6 +103,7 @@ function TrainInner() {
     ])
 
     setRoutineName((routine as { name: string } | null)?.name ?? null)
+    setActiveRoutineId(activeId)
     setDays((daysData as unknown as DayRow[]) || [])
 
     // Ejercicios de la rutina (deduplicados) para armar un entrenamiento a medida.
@@ -135,6 +137,7 @@ function TrainInner() {
       .from('workouts')
       .insert({
         user_id: user?.id,
+        routine_id: activeRoutineId,
         ...(date ? { started_at: new Date(`${date}T12:00:00`).toISOString() } : {}),
       })
       .select()
@@ -174,6 +177,7 @@ function TrainInner() {
       .from('workouts')
       .insert({
         user_id: user?.id,
+        routine_id: activeRoutineId,
         ...(date ? { started_at: new Date(`${date}T12:00:00`).toISOString() } : {}),
       })
       .select()

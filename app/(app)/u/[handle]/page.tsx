@@ -56,7 +56,7 @@ export default function UserProfilePage() {
   const [routineLikes, setRoutineLikes] = useState<Record<string, number>>({})
   const [routineLiked, setRoutineLiked] = useState<Record<string, boolean>>({})
   const [routineFollowers, setRoutineFollowers] = useState<Record<string, number>>({})
-  const [checkins, setCheckins] = useState<{ id: string; group_id: string; summary: string | null; photo_url: string | null; created_at: string }[]>([])
+  const [checkins, setCheckins] = useState<{ id: string; group_id: string | null; summary: string | null; photo_url: string | null; created_at: string; workout_id: string | null; workoutDate: string | null; routineName: string | null }[]>([])
   const [groupNames, setGroupNames] = useState<Record<string, string>>({})
   const [adminGroups, setAdminGroups] = useState<{ id: string; name: string }[]>([])
   const [memberOf, setMemberOf] = useState<string[]>([])
@@ -129,13 +129,35 @@ export default function UserProfilePage() {
       // Check-ins del usuario (group_posts; RLS muestra solo los de comunidades que podés ver).
       const { data: posts } = await supabase
         .from('group_posts')
-        .select('id, group_id, summary, photo_url, created_at')
+        .select('id, group_id, summary, photo_url, created_at, workout_id, workout:workouts(started_at, routine:routines(name))')
         .eq('user_id', (prof as Profile).id)
         .order('created_at', { ascending: false })
-        .limit(50)
-      const postList = (posts as { id: string; group_id: string; summary: string | null; photo_url: string | null; created_at: string }[]) || []
+        .limit(80)
+      // Dedup por workout (un mismo entrenamiento puede ir al feed personal y a grupos).
+      const seen = new Set<string>()
+      const postList = ((posts as any[]) || [])
+        .map((p) => {
+          const w = Array.isArray(p.workout) ? p.workout[0] : p.workout
+          const r = w && (Array.isArray(w.routine) ? w.routine[0] : w.routine)
+          return {
+            id: p.id as string,
+            group_id: p.group_id as string | null,
+            summary: p.summary as string | null,
+            photo_url: p.photo_url as string | null,
+            created_at: p.created_at as string,
+            workout_id: p.workout_id as string | null,
+            workoutDate: (w?.started_at ?? null) as string | null,
+            routineName: (r?.name ?? null) as string | null,
+          }
+        })
+        .filter((p) => {
+          if (!p.workout_id) return true
+          if (seen.has(p.workout_id)) return false
+          seen.add(p.workout_id)
+          return true
+        })
       setCheckins(postList)
-      const gids = [...new Set(postList.map((p) => p.group_id))]
+      const gids = [...new Set(postList.map((p) => p.group_id).filter(Boolean) as string[])]
       if (gids.length) {
         const { data: gs } = await supabase.from('groups').select('id, name').in('id', gids)
         const gMap: Record<string, string> = {}
@@ -422,10 +444,12 @@ export default function UserProfilePage() {
                       <Box component="img" src={p.photo_url} alt="" sx={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }} />
                     )}
                     <CardContent sx={{ py: 1.5 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        {groupNames[p.group_id] ?? 'comunidad'} · {new Date(p.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
+                      <Typography variant="caption" color="text.hint">
+                        {new Date(p.workoutDate || p.created_at).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        {p.routineName ? ` · 📋 ${p.routineName}` : ''}
+                        {p.group_id ? ` · ${groupNames[p.group_id] ?? 'comunidad'}` : ''}
                       </Typography>
-                      <Typography variant="body2">{p.summary || 'Compartió un entrenamiento'}</Typography>
+                      {p.summary && <Typography variant="body2" sx={{ mt: 0.25 }}>{p.summary}</Typography>}
                     </CardContent>
                   </Card>
                 ))

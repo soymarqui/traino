@@ -29,6 +29,10 @@ import { createClient } from '@/lib/supabase/client'
 import PostComments from '@/components/PostComments'
 import { useRouter } from 'next/navigation'
 
+function feedDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
 type GroupRow = { id: string; name: string; role: string }
 type FeedPost = {
   id: string
@@ -38,6 +42,8 @@ type FeedPost = {
   photo_url: string | null
   created_at: string
   workout_id: string | null
+  workoutDate?: string | null
+  routineName?: string | null
 }
 type ChallengeRow = {
   id: string
@@ -118,10 +124,14 @@ export default function FriendsPage() {
     // Feed de posts.
     const { data: posts } = await supabase
       .from('group_posts')
-      .select('id, group_id, user_id, summary, photo_url, created_at, workout_id')
+      .select('id, group_id, user_id, summary, photo_url, created_at, workout_id, workout:workouts(started_at, routine:routines(name))')
       .order('created_at', { ascending: false })
       .limit(80)
-    const feedPosts = (posts as FeedPost[]) || []
+    const feedPosts = ((posts as any[]) || []).map((p) => {
+      const w = Array.isArray(p.workout) ? p.workout[0] : p.workout
+      const r = w && (Array.isArray(w.routine) ? w.routine[0] : w.routine)
+      return { ...p, workoutDate: w?.started_at ?? null, routineName: r?.name ?? null } as FeedPost
+    })
     setFeed(feedPosts)
 
     const uids = [...new Set(feedPosts.map((p) => p.user_id))]
@@ -498,9 +508,15 @@ export default function FriendsPage() {
                         {' · '}{p.group_id ? groupNames[p.group_id] ?? 'grupo' : 'check-in'}
                       </Typography>
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {p.summary || 'Compartió un entrenamiento'}
+                    <Typography variant="caption" color="text.hint">
+                      {feedDate(p.workoutDate || p.created_at)}
+                      {p.routineName ? ` · 📋 ${p.routineName}` : ''}
                     </Typography>
+                    {p.summary && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                        {p.summary}
+                      </Typography>
+                    )}
                   </CardContent>
                 </CardActionArea>
                 <Box sx={{ px: 1.5, pb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }}>
