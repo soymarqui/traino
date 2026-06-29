@@ -22,7 +22,10 @@ import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
 import ChecklistIcon from '@mui/icons-material/Checklist'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
 import HistoryIcon from '@mui/icons-material/History'
-import SettingsIcon from '@mui/icons-material/Settings'
+import TuneIcon from '@mui/icons-material/Tune'
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts'
+import PersonIcon from '@mui/icons-material/Person'
+import LogoutIcon from '@mui/icons-material/Logout'
 import GroupIcon from '@mui/icons-material/Group'
 import { createClient } from '@/lib/supabase/client'
 import { initialOf, avatarUrl } from '@/lib/user'
@@ -42,7 +45,8 @@ const BOTTOM_TABS = [
 const DRAWER_ITEMS = [
   { label: 'Ejercicios', value: '/exercises', icon: <MenuBookIcon /> },
   { label: 'Historial', value: '/history', icon: <HistoryIcon /> },
-  { label: 'Configuración', value: '/settings', icon: <SettingsIcon /> },
+  { label: 'Ajustes', value: '/settings', icon: <TuneIcon /> },
+  { label: 'Configuración de cuenta', value: '/account', icon: <ManageAccountsIcon /> },
 ]
 
 export default function AppLayout({
@@ -54,6 +58,7 @@ export default function AppLayout({
   const router = useRouter()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
+  const [handle, setHandle] = useState<string | null>(null)
   const [friends, setFriends] = useState<{ id: string; handle: string | null; display_name: string | null; avatar_url: string | null }[]>([])
   const supabase = createClient()
 
@@ -62,6 +67,9 @@ export default function AppLayout({
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       if (!user) return
+      // Handle propio (para "Ver Perfil").
+      const { data: myProfile } = await supabase.from('profiles').select('handle').eq('id', user.id).maybeSingle()
+      setHandle((myProfile as { handle: string | null } | null)?.handle ?? null)
       // "Amigos" = co-miembros de tus comunidades.
       const { data: myMem } = await supabase.from('group_members').select('group_id').eq('user_id', user.id)
       const gids = (myMem || []).map((m: { group_id: string }) => m.group_id)
@@ -78,6 +86,17 @@ export default function AppLayout({
   const go = (value: string) => {
     setDrawerOpen(false)
     router.push(value)
+  }
+
+  const viewProfile = () => {
+    setDrawerOpen(false)
+    router.push(handle ? `/u/${handle}` : '/account')
+  }
+
+  const signOut = async () => {
+    setDrawerOpen(false)
+    await supabase.auth.signOut()
+    router.push('/login')
   }
 
   const activeBottom =
@@ -146,6 +165,10 @@ export default function AppLayout({
           )}
           <Divider />
           <List>
+            <ListItemButton onClick={viewProfile}>
+              <ListItemIcon sx={{ color: 'text.secondary' }}><PersonIcon /></ListItemIcon>
+              <ListItemText primary="Ver perfil" />
+            </ListItemButton>
             {DRAWER_ITEMS.map((item) => (
               <ListItemButton
                 key={item.value}
@@ -156,6 +179,11 @@ export default function AppLayout({
                 <ListItemText primary={item.label} />
               </ListItemButton>
             ))}
+            <Divider sx={{ my: 1 }} />
+            <ListItemButton onClick={signOut}>
+              <ListItemIcon sx={{ color: 'text.secondary' }}><LogoutIcon /></ListItemIcon>
+              <ListItemText primary="Cerrar sesión" />
+            </ListItemButton>
           </List>
 
           {friends.length > 0 && (
