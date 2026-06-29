@@ -555,7 +555,7 @@ export default function FriendsPage() {
       <SpeedDial
         ariaLabel="Acciones"
         icon={<SpeedDialIcon />}
-        sx={{ position: 'fixed', bottom: 84, right: 16, zIndex: 12 }}
+        sx={{ position: 'fixed', bottom: 96, right: 16, zIndex: 12 }}
       >
         <SpeedDialAction
           icon={<PhotoCameraIcon />}

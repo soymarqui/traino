@@ -215,25 +215,34 @@ export default function AppLayout({
 
       <RestTimerProvider>{children}</RestTimerProvider>
 
-      {/* Navegación inferior */}
+      {/* Navegación inferior flotante (pill) */}
       <Paper
         elevation={0}
         sx={{
           position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
+          bottom: 'calc(16px + env(safe-area-inset-bottom))',
+          left: 16,
+          right: 16,
           zIndex: 10,
-          borderTop: '1px solid',
+          borderRadius: 999,
+          border: '1px solid',
           borderColor: 'divider',
-          bgcolor: 'background.paper',
+          bgcolor: 'rgba(20,20,20,0.75)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
+          overflow: 'hidden',
         }}
       >
         <BottomNavigation
           value={activeBottom}
           onChange={(_, value) => router.push(value)}
           showLabels
-          sx={{ bgcolor: 'transparent', height: 64 }}
+          sx={{
+            bgcolor: 'transparent',
+            height: 64,
+            '& .MuiBottomNavigationAction-root': { minWidth: 0 },
+          }}
         >
           {BOTTOM_TABS.map((tab) => (
             <BottomNavigationAction

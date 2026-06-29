@@ -153,7 +153,7 @@ export default function AddExercisesPage() {
           })}
       </Box>
 
-      <Box sx={{ position: 'fixed', bottom: '76px', left: '16px', right: '16px', zIndex: 11 }}>
+      <Box sx={{ position: 'fixed', bottom: '96px', left: '16px', right: '16px', zIndex: 11 }}>
         <Button variant="contained" size="large" fullWidth onClick={confirm} disabled={saving || !dirty}>
           {saving ? 'Guardando...' : `Agregar a rutina (${selected.length})`}
         </Button>

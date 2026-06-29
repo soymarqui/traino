@@ -825,7 +825,7 @@ export default function WorkoutPage() {
       {restActive && secondsLeft > 3 && (
         <Box
           sx={{
-            position: 'fixed', bottom: '80px', left: '16px', right: '16px', zIndex: 11,
+            position: 'fixed', bottom: '96px', left: '16px', right: '16px', zIndex: 11,
             bgcolor: 'background.paper', border: '1px solid', borderColor: 'primary.main',
             borderRadius: 2, py: 1, textAlign: 'center',
           }}
