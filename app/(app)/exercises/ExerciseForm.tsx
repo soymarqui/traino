@@ -239,6 +239,7 @@ export default function ExerciseForm({
         multiline
         rows={2}
         placeholder="Descripción general del ejercicio"
+        helperText="Soporta Markdown: **negrita**, *itálica*, listas con - o 1."
       />
 
       <TextField
@@ -249,6 +250,7 @@ export default function ExerciseForm({
         multiline
         rows={3}
         placeholder="Cómo hacerlo, técnica, tips..."
+        helperText="Soporta Markdown: **negrita**, *itálica*, listas con - o 1."
       />
 
       <Button

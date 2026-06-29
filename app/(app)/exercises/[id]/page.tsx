@@ -23,6 +23,7 @@ import { isAdmin } from '@/lib/admin'
 import { equipmentLabel } from '@/lib/equipment'
 import { muscleLabel, muscleEmoji } from '@/lib/muscles'
 import { unitShort } from '@/lib/units'
+import Markdown from '@/components/Markdown'
 import { Exercise } from '@/types/database'
 import { useRouter, useParams } from 'next/navigation'
 import AddToRoutineDialog from './AddToRoutineDialog'
@@ -307,9 +308,9 @@ export default function ExerciseDetailPage() {
                 {exercise.name}
               </Typography>
               {exercise.description && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {exercise.description}
-                </Typography>
+                <Box sx={{ mt: 0.5 }}>
+                  <Markdown text={exercise.description} />
+                </Box>
               )}
               <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                 {exercise.muscle && (
@@ -405,18 +406,22 @@ export default function ExerciseDetailPage() {
 
             {/* Cómo hacerlo */}
             <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 1.5 }}>
                 Indicaciones
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
-                {exercise.notes || 'Todavía no hay indicaciones para este ejercicio.'}
-              </Typography>
+              {exercise.notes ? (
+                <Markdown text={exercise.notes} />
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  Todavía no hay indicaciones para este ejercicio.
+                </Typography>
+              )}
             </Box>
 
             {/* Rutinas con este ejercicio */}
             <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                Rutinas con este ejercicio:
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 1.5 }}>
+                Rutinas con este ejercicio
               </Typography>
               {routinesWith.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
