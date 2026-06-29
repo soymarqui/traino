@@ -322,7 +322,7 @@ export default function RoutinesPage() {
         )}
 
         {!loading && (owned.length > 0 || subscribed.length > 0) && (
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
+          <Typography variant="caption" color="text.hint" sx={{ mt: 1, textAlign: 'center' }}>
             Deslizá: → activar, ← más acciones
           </Typography>
         )}

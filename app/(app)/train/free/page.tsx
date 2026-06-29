@@ -114,7 +114,7 @@ function FreeTrainInner() {
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             Entrenamiento libre
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.hint">
             Deslizá y tocá los ejercicios que querés hacer
           </Typography>
         </Box>

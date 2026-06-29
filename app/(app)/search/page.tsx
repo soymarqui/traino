@@ -220,7 +220,7 @@ export default function SearchPage() {
         {loading && <Typography color="text.secondary">Buscando...</Typography>}
 
         {!loading && !searched && (
-          <Typography color="text.secondary" sx={{ pt: 4, textAlign: 'center' }}>
+          <Typography color="text.hint" sx={{ pt: 4, textAlign: 'center' }}>
             Buscá personas, rutinas, comunidades y desafíos.
           </Typography>
         )}
