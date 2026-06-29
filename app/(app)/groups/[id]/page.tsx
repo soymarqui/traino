@@ -22,6 +22,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import AddIcon from '@mui/icons-material/Add'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import { createClient } from '@/lib/supabase/client'
+import PostComments from '@/components/PostComments'
 import { useRouter, useParams } from 'next/navigation'
 
 type Profile = { id: string; handle: string | null; display_name: string | null; avatar_url: string | null }
@@ -48,6 +49,7 @@ export default function GroupPage() {
   const [profiles, setProfiles] = useState<Record<string, Profile>>({})
   const [posts, setPosts] = useState<Post[]>([])
   const [likes, setLikes] = useState<Record<string, { count: number; mine: boolean }>>({})
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
   const [events, setEvents] = useState<EventRow[]>([])
   const [challenges, setChallenges] = useState<ChallengeRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -99,6 +101,12 @@ export default function GroupPage() {
         if (l.user_id === user?.id) map[l.post_id].mine = true
       })
       setLikes(map)
+
+      const { data: pc } = await supabase.from('post_comments').select('post_id').in('post_id', postIds)
+      const cmap: Record<string, number> = {}
+      postIds.forEach((id) => (cmap[id] = 0))
+      ;(pc || []).forEach((c: { post_id: string }) => (cmap[c.post_id] = (cmap[c.post_id] ?? 0) + 1))
+      setCommentCounts(cmap)
     }
 
     // Perfiles de todos los usuarios involucrados.
@@ -422,6 +430,12 @@ export default function GroupPage() {
                       <Typography variant="body2" color={likes[p.id]?.mine ? 'primary.main' : 'text.secondary'} sx={{ fontWeight: 600 }}>
                         {likes[p.id]?.count ?? 0}
                       </Typography>
+                      <PostComments
+                        postId={p.id}
+                        userId={userId}
+                        count={commentCounts[p.id] ?? 0}
+                        onCount={(n) => setCommentCounts((prev) => ({ ...prev, [p.id]: n }))}
+                      />
                     </Box>
                   </CardContent>
                 </Card>
