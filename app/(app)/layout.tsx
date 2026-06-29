@@ -17,6 +17,7 @@ import Paper from '@mui/material/Paper'
 import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
 import MenuIcon from '@mui/icons-material/Menu'
+import SearchIcon from '@mui/icons-material/Search'
 import HomeIcon from '@mui/icons-material/Home'
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
 import ChecklistIcon from '@mui/icons-material/Checklist'
@@ -133,6 +134,9 @@ export default function AppLayout({
           <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main', flex: 1 }}>
             Traino
           </Typography>
+          <IconButton onClick={() => router.push('/search')} sx={{ color: 'text.primary' }} aria-label="buscar">
+            <SearchIcon />
+          </IconButton>
           <IconButton onClick={() => router.push('/settings')} sx={{ p: 0 }} aria-label="perfil">
             <Avatar
               src={avatarUrl(user) || undefined}
