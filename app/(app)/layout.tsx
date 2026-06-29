@@ -43,7 +43,7 @@ import { fetchNotifications, countUnread } from '@/lib/notifications'
 const BOTTOM_TABS = [
   { label: 'Inicio', value: '/dashboard', icon: <HomeIcon /> },
   { label: 'Comunidades', value: '/friends', icon: <GroupIcon /> },
-  { label: 'Rutina', value: '/routine', icon: <ChecklistIcon /> },
+  { label: 'Mis Rutinas', value: '/routine', icon: <ChecklistIcon /> },
   { label: 'Entrenamiento', value: '/train', icon: <FitnessCenterIcon /> },
 ]
 

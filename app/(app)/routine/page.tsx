@@ -290,7 +290,7 @@ export default function RoutinesPage() {
     <Box sx={{ minHeight: '100vh', pb: 12 }}>
       <Box sx={{ px: 3, pt: 4, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Mis rutinas
+          Mis Rutinas
         </Typography>
         <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={() => setCreateOpen(true)}>
           Nueva
