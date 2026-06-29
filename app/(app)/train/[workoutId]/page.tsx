@@ -142,6 +142,7 @@ export default function WorkoutPage() {
   const [groupSel, setGroupSel] = useState<string[]>([])
   const [publishing, setPublishing] = useState(false)
   const [published, setPublished] = useState(false)
+  const [checkinPostId, setCheckinPostId] = useState<string | null>(null)
   const [alreadyFinished, setAlreadyFinished] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [marking, setMarking] = useState<{ set: SetRow; exName: string; unitLabel: string; unit: string; distanceUnit: string | null } | null>(null)
@@ -578,6 +579,32 @@ export default function WorkoutPage() {
       .from('workouts')
       .update({ finished_at: new Date(now).toISOString(), ...(durationSec != null ? { duration_seconds: durationSec } : {}) })
       .eq('id', workoutId)
+
+    // Auto-publicar un check-in al feed (visible en tu perfil y para tus amigos)
+    // al finalizar una sesión de hoy. Luego se puede enriquecer en el resumen.
+    const isToday = startedAt ? new Date(startedAt).toDateString() === new Date(now).toDateString() : true
+    if (userId && !alreadyFinished && isToday) {
+      const { data: existing } = await supabase
+        .from('group_posts')
+        .select('id')
+        .eq('workout_id', workoutId)
+        .eq('user_id', userId)
+        .is('group_id', null)
+        .maybeSingle()
+      if (existing) {
+        setCheckinPostId(existing.id)
+      } else {
+        const done = exercises.reduce((a, ex) => a + ex.sets.filter((s) => s.completed).length, 0)
+        const summary = `${exercises.length} ejercicios · ${done} series`
+        const { data: post } = await supabase
+          .from('group_posts')
+          .insert({ user_id: userId, workout_id: workoutId, group_id: null, summary, photo_url: photoUrl || null })
+          .select('id')
+          .single()
+        if (post) setCheckinPostId(post.id)
+      }
+    }
+
     setFinishing(false)
     setFinishedAt(Date.now())
     setCelebrateMsg(CELEBRATIONS[Math.floor(Math.random() * CELEBRATIONS.length)])
@@ -598,6 +625,8 @@ export default function WorkoutPage() {
       const url = `${data.publicUrl}?t=${Date.now()}`
       await supabase.from('workouts').update({ photo_url: url }).eq('id', workoutId)
       setPhotoUrl(url)
+      // Si ya hay un check-in publicado para este workout, sincronizar su foto.
+      if (checkinPostId) await supabase.from('group_posts').update({ photo_url: url }).eq('id', checkinPostId)
     }
     setUploadingPhoto(false)
   }
@@ -685,19 +714,26 @@ export default function WorkoutPage() {
     const summary = parts.join(' · ') || `${exercises.length} ejercicios · ${completedSets} series`
 
     const base = { user_id: userId, workout_id: workoutId, summary, photo_url: photoUrl || null }
-    // Check-in personal al feed (visible para amigos) — sobre este post van los tags.
-    const { data: personal } = await supabase
-      .from('group_posts')
-      .insert({ ...base, group_id: null })
-      .select('id')
-      .single()
+    // El check-in personal ya existe (auto-creado al finalizar): lo actualizamos.
+    // Si por algún motivo no existe, lo creamos.
+    let personalId = checkinPostId
+    if (personalId) {
+      await supabase.from('group_posts').update({ summary, photo_url: photoUrl || null }).eq('id', personalId)
+    } else {
+      const { data: personal } = await supabase.from('group_posts').insert({ ...base, group_id: null }).select('id').single()
+      personalId = personal?.id ?? null
+      if (personalId) setCheckinPostId(personalId)
+    }
     // Opcionalmente, también a los grupos elegidos.
     if (showToGroups && groupSel.length) {
       await supabase.from('group_posts').insert(groupSel.map((gid) => ({ ...base, group_id: gid })))
     }
     // Etiquetas (notifican al etiquetado).
-    if (personal && tagged.length) {
-      await supabase.from('post_tags').insert(tagged.map((t) => ({ post_id: personal.id, tagged_user_id: t.id })))
+    if (personalId && tagged.length) {
+      await supabase.from('post_tags').upsert(
+        tagged.map((t) => ({ post_id: personalId as string, tagged_user_id: t.id })),
+        { onConflict: 'post_id,tagged_user_id' }
+      )
     }
 
     setPublishing(false)
