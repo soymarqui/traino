@@ -6,12 +6,13 @@ import Typography from '@mui/material/Typography'
 import Avatar from '@mui/material/Avatar'
 import Chip from '@mui/material/Chip'
 import Card from '@mui/material/Card'
-import CardActionArea from '@mui/material/CardActionArea'
 import CardContent from '@mui/material/CardContent'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
+import Tabs from '@mui/material/Tabs'
+import Tab from '@mui/material/Tab'
 import Snackbar from '@mui/material/Snackbar'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import GroupAddIcon from '@mui/icons-material/GroupAdd'
@@ -21,6 +22,7 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import InstagramIcon from '@mui/icons-material/Instagram'
 import VerifiedIcon from '@mui/icons-material/Verified'
 import { createClient } from '@/lib/supabase/client'
+import RoutineCard from '@/components/RoutineCard'
 import { useRouter, useParams } from 'next/navigation'
 
 const IDENTITY_LABELS: Record<string, string> = { gymbro: 'GymBro', gymsis: 'GymSis', gympal: 'GymPal' }
@@ -47,8 +49,12 @@ export default function UserProfilePage() {
   const params = useParams()
   const handle = (params.handle as string).replace(/^@/, '')
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [routines, setRoutines] = useState<{ id: string; name: string; cover_url: string | null }[]>([])
-  const [challenges, setChallenges] = useState<{ id: string; name: string; objective: string | null; duration_days: number | null }[]>([])
+  const [tab, setTab] = useState<'rutinas' | 'entrenamientos' | 'logros'>('rutinas')
+  const [routines, setRoutines] = useState<{ id: string; name: string; description: string | null; cover_url: string | null }[]>([])
+  const [routineLikes, setRoutineLikes] = useState<Record<string, number>>({})
+  const [routineFollowers, setRoutineFollowers] = useState<Record<string, number>>({})
+  const [checkins, setCheckins] = useState<{ id: string; group_id: string; summary: string | null; photo_url: string | null; created_at: string }[]>([])
+  const [groupNames, setGroupNames] = useState<Record<string, string>>({})
   const [adminGroups, setAdminGroups] = useState<{ id: string; name: string }[]>([])
   const [memberOf, setMemberOf] = useState<string[]>([])
   const [igVisible, setIgVisible] = useState(false)
@@ -90,19 +96,44 @@ export default function UserProfilePage() {
     if (prof) {
       const { data: rts } = await supabase
         .from('routines')
-        .select('id, name, cover_url')
+        .select('id, name, description, cover_url')
         .eq('owner_id', (prof as Profile).id)
         .eq('visibility', 'public')
         .order('created_at')
-      setRoutines((rts as { id: string; name: string; cover_url: string | null }[]) || [])
+      const routineList = (rts as { id: string; name: string; description: string | null; cover_url: string | null }[]) || []
+      setRoutines(routineList)
 
-      const { data: chs } = await supabase
-        .from('challenges')
-        .select('id, name, objective, duration_days')
-        .eq('creator_id', (prof as Profile).id)
-        .eq('status', 'active')
+      // Likes 💪 y seguidores por rutina.
+      const rids = routineList.map((r) => r.id)
+      if (rids.length) {
+        const [{ data: rl }, { data: rs }] = await Promise.all([
+          supabase.from('routine_likes').select('routine_id').in('routine_id', rids),
+          supabase.from('routine_subscriptions').select('routine_id').in('routine_id', rids),
+        ])
+        const lMap: Record<string, number> = {}
+        ;(rl || []).forEach((x: { routine_id: string }) => (lMap[x.routine_id] = (lMap[x.routine_id] ?? 0) + 1))
+        const fMap: Record<string, number> = {}
+        ;(rs || []).forEach((x: { routine_id: string }) => (fMap[x.routine_id] = (fMap[x.routine_id] ?? 0) + 1))
+        setRoutineLikes(lMap)
+        setRoutineFollowers(fMap)
+      }
+
+      // Check-ins del usuario (group_posts; RLS muestra solo los de comunidades que podés ver).
+      const { data: posts } = await supabase
+        .from('group_posts')
+        .select('id, group_id, summary, photo_url, created_at')
+        .eq('user_id', (prof as Profile).id)
         .order('created_at', { ascending: false })
-      setChallenges((chs as { id: string; name: string; objective: string | null; duration_days: number | null }[]) || [])
+        .limit(50)
+      const postList = (posts as { id: string; group_id: string; summary: string | null; photo_url: string | null; created_at: string }[]) || []
+      setCheckins(postList)
+      const gids = [...new Set(postList.map((p) => p.group_id))]
+      if (gids.length) {
+        const { data: gs } = await supabase.from('groups').select('id, name').in('id', gids)
+        const gMap: Record<string, string> = {}
+        ;(gs || []).forEach((g: { id: string; name: string }) => (gMap[g.id] = g.name))
+        setGroupNames(gMap)
+      }
     }
 
     if (user) {
@@ -305,70 +336,76 @@ export default function UserProfilePage() {
             )}
           </Box>
 
-          {/* Secciones */}
-          <Box sx={{ px: 3, mt: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-            <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                Rutinas públicas
-              </Typography>
-              {routines.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
+          {/* Pestañas */}
+          <Tabs
+            value={tab}
+            onChange={(_, v) => setTab(v)}
+            variant="fullWidth"
+            sx={{ mt: 3, borderBottom: '1px solid', borderColor: 'divider' }}
+          >
+            <Tab value="rutinas" label="Rutinas" />
+            <Tab value="entrenamientos" label="Entrenamientos" />
+            <Tab value="logros" label="Logros" />
+          </Tabs>
+
+          <Box sx={{ px: 3, mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {/* RUTINAS */}
+            {tab === 'rutinas' && (
+              routines.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', pt: 4 }}>
                   No tiene rutinas públicas.
                 </Typography>
               ) : (
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-                  {routines.map((r) => (
-                    <Card key={r.id} sx={{ borderRadius: '18px' }}>
-                      <CardActionArea onClick={() => router.push(`/r/${r.id}`)} sx={{ height: '100%' }}>
-                        <Box
-                          sx={{
-                            position: 'relative', aspectRatio: '1 / 1',
-                            background: r.cover_url ? undefined : 'linear-gradient(135deg, #1f1f1f, #0A0A0A)',
-                          }}
-                        >
-                          {r.cover_url && (
-                            <Box component="img" src={r.cover_url} alt="" sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                          )}
-                          {/* Gradiente para legibilidad del título */}
-                          <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top right, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,0.35) 75%, rgba(0,0,0,0) 100%)' }} />
-                          <Typography
-                            variant="body1"
-                            sx={{ position: 'absolute', left: 12, right: 12, bottom: 10, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}
-                          >
-                            {r.name}
-                          </Typography>
-                        </Box>
-                      </CardActionArea>
-                    </Card>
-                  ))}
-                </Box>
-              )}
-            </Box>
+                routines.map((r) => (
+                  <RoutineCard
+                    key={r.id}
+                    name={r.name}
+                    coverUrl={r.cover_url}
+                    description={r.description}
+                    likes={routineLikes[r.id] ?? 0}
+                    followers={routineFollowers[r.id] ?? 0}
+                    onClick={() => router.push(`/r/${r.id}`)}
+                  />
+                ))
+              )
+            )}
 
-            {challenges.length > 0 && (
-              <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                  Desafíos
+            {/* ENTRENAMIENTOS (check-ins) */}
+            {tab === 'entrenamientos' && (
+              checkins.length === 0 ? (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', pt: 4 }}>
+                  No hay check-ins para mostrar.
                 </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {challenges.map((c) => (
-                    <Card key={c.id}>
-                      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 1.5 }}>
-                        <EmojiEventsIcon sx={{ color: 'primary.main' }} />
-                        <Box>
-                          <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                            {c.name}
-                          </Typography>
-                          {(c.objective || c.duration_days) && (
-                            <Typography variant="body2" color="text.secondary">
-                              {[c.objective, c.duration_days ? `${c.duration_days} días` : null].filter(Boolean).join(' · ')}
-                            </Typography>
-                          )}
-                        </Box>
-                      </CardContent>
-                    </Card>
+              ) : (
+                checkins.map((p) => (
+                  <Card key={p.id}>
+                    {p.photo_url && (
+                      <Box component="img" src={p.photo_url} alt="" sx={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }} />
+                    )}
+                    <CardContent sx={{ py: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {groupNames[p.group_id] ?? 'comunidad'} · {new Date(p.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
+                      </Typography>
+                      <Typography variant="body2">{p.summary || 'Compartió un entrenamiento'}</Typography>
+                    </CardContent>
+                  </Card>
+                ))
+              )
+            )}
+
+            {/* LOGROS (próximamente) */}
+            {tab === 'logros' && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, pt: 4, textAlign: 'center' }}>
+                <EmojiEventsIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
+                <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 360 }}>
+                  Pronto vas a poder ganar <b>medallas</b> por constancia, rachas en el gym, desafíos completados, amigos, rutinas y más.
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 1 }}>
+                  {['🔥 Racha', '🏆 Desafíos', '👥 Amigos', '📋 Rutinas', '💎 Constancia'].map((m) => (
+                    <Chip key={m} label={m} variant="outlined" sx={{ opacity: 0.5 }} />
                   ))}
                 </Box>
+                <Chip label="Próximamente" size="small" />
               </Box>
             )}
           </Box>
