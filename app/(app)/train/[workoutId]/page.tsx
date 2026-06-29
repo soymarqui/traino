@@ -685,10 +685,20 @@ export default function WorkoutPage() {
     const summary = parts.join(' · ') || `${exercises.length} ejercicios · ${completedSets} series`
 
     const base = { user_id: userId, workout_id: workoutId, summary, photo_url: photoUrl || null }
-    // Siempre al feed (check-in personal, visible para amigos) + opcionalmente a grupos elegidos.
-    const rows: Record<string, unknown>[] = [{ ...base, group_id: null }]
-    if (showToGroups) groupSel.forEach((gid) => rows.push({ ...base, group_id: gid }))
-    await supabase.from('group_posts').insert(rows)
+    // Check-in personal al feed (visible para amigos) — sobre este post van los tags.
+    const { data: personal } = await supabase
+      .from('group_posts')
+      .insert({ ...base, group_id: null })
+      .select('id')
+      .single()
+    // Opcionalmente, también a los grupos elegidos.
+    if (showToGroups && groupSel.length) {
+      await supabase.from('group_posts').insert(groupSel.map((gid) => ({ ...base, group_id: gid })))
+    }
+    // Etiquetas (notifican al etiquetado).
+    if (personal && tagged.length) {
+      await supabase.from('post_tags').insert(tagged.map((t) => ({ post_id: personal.id, tagged_user_id: t.id })))
+    }
 
     setPublishing(false)
     setPublished(true)

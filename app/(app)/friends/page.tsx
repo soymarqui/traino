@@ -37,6 +37,7 @@ type FeedPost = {
   summary: string | null
   photo_url: string | null
   created_at: string
+  workout_id: string | null
 }
 type ChallengeRow = {
   id: string
@@ -117,9 +118,9 @@ export default function FriendsPage() {
     // Feed de posts.
     const { data: posts } = await supabase
       .from('group_posts')
-      .select('id, group_id, user_id, summary, photo_url, created_at')
+      .select('id, group_id, user_id, summary, photo_url, created_at, workout_id')
       .order('created_at', { ascending: false })
-      .limit(50)
+      .limit(80)
     const feedPosts = (posts as FeedPost[]) || []
     setFeed(feedPosts)
 
@@ -222,15 +223,28 @@ export default function FriendsPage() {
     )
   }
 
+  // Dedup: un mismo entrenamiento (workout) puede publicarse al feed personal y a
+  // grupos; lo mostramos una sola vez por (usuario, workout).
+  const dedupedFeed = (() => {
+    const seen = new Set<string>()
+    return feed.filter((p) => {
+      if (!p.workout_id) return true
+      const key = `${p.user_id}:${p.workout_id}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  })()
+
   const orderedFeed =
     order === 'relevante'
-      ? [...feed].sort((a, b) => {
+      ? [...dedupedFeed].sort((a, b) => {
           const pa = a.photo_url ? 1 : 0
           const pb = b.photo_url ? 1 : 0
           if (pa !== pb) return pb - pa
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         })
-      : feed
+      : dedupedFeed
 
   const createGroup = async () => {
     if (!groupName.trim()) return

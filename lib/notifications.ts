@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type Notif = {
   id: string
-  kind: 'request' | 'routine' | 'group'
+  kind: 'request' | 'routine' | 'group' | 'tag'
   ts: string
   actorName: string
   actorAvatar: string | null
@@ -63,8 +63,22 @@ export async function fetchNotifications(supabase: SupabaseClient, userId: strin
     .filter((m): m is { groupId: string; name: string; ownerId: string; role: string; created_at: string } => !!m)
     .filter((m) => m.ownerId !== userId)
 
-  // Resolver perfiles de actores (solicitantes + dueños de rutinas).
-  const actorIds = [...new Set([...incoming.map((f) => f.requester_id), ...routines.map((r) => r.owner_id)])]
+  // Check-ins donde me etiquetaron.
+  const { data: tagRows } = await supabase
+    .from('post_tags')
+    .select('post_id, created_at, post:group_posts(id, user_id, summary)')
+    .eq('tagged_user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(20)
+  const tags = ((tagRows as any[]) || [])
+    .map((t) => {
+      const p = Array.isArray(t.post) ? t.post[0] : t.post
+      return p ? { postId: p.id as string, authorId: p.user_id as string, created_at: t.created_at as string } : null
+    })
+    .filter((t): t is { postId: string; authorId: string; created_at: string } => !!t)
+
+  // Resolver perfiles de actores (solicitantes + dueños de rutinas + quien etiquetó).
+  const actorIds = [...new Set([...incoming.map((f) => f.requester_id), ...routines.map((r) => r.owner_id), ...tags.map((t) => t.authorId)])]
   const profById: Record<string, Prof> = {}
   if (actorIds.length) {
     const { data: profs } = await supabase.from('profiles').select('id, handle, display_name, avatar_url').in('id', actorIds)
@@ -93,6 +107,18 @@ export async function fetchNotifications(supabase: SupabaseClient, userId: strin
       actorAvatar: profById[r.owner_id]?.avatar_url ?? null,
       text: `publicó la rutina "${r.name}"`,
       href: `/r/${r.id}`,
+    })
+  })
+
+  tags.forEach((t) => {
+    notifs.push({
+      id: `tag-${t.postId}`,
+      kind: 'tag',
+      ts: t.created_at,
+      actorName: nameOf(profById[t.authorId]),
+      actorAvatar: profById[t.authorId]?.avatar_url ?? null,
+      text: 'te etiquetó en un check-in',
+      href: '/friends',
     })
   })
 
