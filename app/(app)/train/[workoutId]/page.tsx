@@ -285,6 +285,33 @@ export default function WorkoutPage() {
     startRest(marking.set.rest_seconds ?? 60)
   }
 
+  // Des-marca una serie (vuelve a incompleta). Mantiene los datos cargados.
+  const unmarkSet = async (setId: string) => {
+    setExercises((prev) =>
+      prev.map((ex) => ({
+        ...ex,
+        sets: ex.sets.map((s) => (s.id === setId ? { ...s, completed: false } : s)),
+      }))
+    )
+    if (marking?.set.id === setId) setMarking(null)
+    await supabase.from('sets').update({ completed: false }).eq('id', setId)
+  }
+
+  // Marca / des-marca todas las series de un ejercicio.
+  const toggleExercise = async (ex: ExerciseWithSets) => {
+    const allDone = ex.sets.every((s) => s.completed)
+    const next = !allDone
+    setExercises((prev) =>
+      prev.map((e) =>
+        e.id === ex.id ? { ...e, sets: e.sets.map((s) => ({ ...s, completed: next })) } : e
+      )
+    )
+    await supabase
+      .from('sets')
+      .update({ completed: next })
+      .in('id', ex.sets.map((s) => s.id))
+  }
+
   // ¿El ejercicio difiere de la rutina activa (cantidad de series o reps)?
   const routineDiffers = (ex: ExerciseWithSets) => {
     const ref = routineRef[ex.id]
@@ -707,11 +734,22 @@ export default function WorkoutPage() {
                       '&:hover': { bgcolor: 'action.hover' },
                     }}
                   >
-                    {set.completed ? (
-                      <CheckCircleIcon sx={{ color: 'primary.main' }} />
-                    ) : (
-                      <RadioButtonUncheckedIcon sx={{ color: 'text.secondary' }} />
-                    )}
+                    <IconButton
+                      size="small"
+                      aria-label={set.completed ? 'Desmarcar serie' : 'Marcar serie'}
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation()
+                        if (set.completed) unmarkSet(set.id)
+                        else openMark(set, exercise)
+                      }}
+                      sx={{ p: 0 }}
+                    >
+                      {set.completed ? (
+                        <CheckCircleIcon sx={{ color: 'primary.main' }} />
+                      ) : (
+                        <RadioButtonUncheckedIcon sx={{ color: 'text.secondary' }} />
+                      )}
+                    </IconButton>
                     <Typography variant="body2" sx={{ width: 24, fontWeight: 600 }}>
                       {set.set_number}
                     </Typography>
@@ -728,6 +766,9 @@ export default function WorkoutPage() {
               </Box>
               <Button size="small" onClick={() => addSet(exercise)} sx={{ mt: 1 }}>
                 + Agregar serie
+              </Button>
+              <Button size="small" color="inherit" onClick={() => toggleExercise(exercise)} sx={{ mt: 1, ml: 1 }}>
+                {exercise.sets.every((s) => s.completed) ? 'Desmarcar todo' : 'Marcar todo'}
               </Button>
               {routineDiffers(exercise) && (
                 <Button
@@ -854,6 +895,11 @@ export default function WorkoutPage() {
           <Button color="error" onClick={deleteSet} sx={{ mr: 'auto' }}>
             Eliminar serie
           </Button>
+          {marking?.set.completed && (
+            <Button color="inherit" onClick={() => marking && unmarkSet(marking.set.id)}>
+              Desmarcar
+            </Button>
+          )}
           <Button color="inherit" onClick={() => setMarking(null)}>
             Cancelar
           </Button>
