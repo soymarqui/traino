@@ -8,8 +8,10 @@ import CardActionArea from '@mui/material/CardActionArea'
 import CardContent from '@mui/material/CardContent'
 import Button from '@mui/material/Button'
 import Alert from '@mui/material/Alert'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { createClient } from '@/lib/supabase/client'
-import { muscleEmoji } from '@/lib/muscles'
+import { muscleEmoji, muscleLabel } from '@/lib/muscles'
+import { gradientBorderSx } from '@/lib/theme'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 type DayRow = {
@@ -17,6 +19,15 @@ type DayRow = {
   name: string
   position: number
   routine_exercises: { exercise: { muscle: { slug: string } | null } | null }[]
+}
+
+type CustomItem = {
+  exercise_id: string
+  name: string
+  muscleSlug: string | null
+  muscleName: string | null
+  restSeconds: number | null
+  sets: { set_number: number; reps: number | null }[]
 }
 
 // Emojis distintos de los músculos del día (cue visual rápido).
@@ -41,6 +52,9 @@ function formatDateLabel(d: string): string {
 function TrainInner() {
   const [routineName, setRoutineName] = useState<string | null>(null)
   const [days, setDays] = useState<DayRow[]>([])
+  const [items, setItems] = useState<CustomItem[]>([])
+  const [selected, setSelected] = useState<string[]>([])
+  const [startingCustom, setStartingCustom] = useState(false)
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState<string | null>(null)
   const router = useRouter()
@@ -71,18 +85,75 @@ function TrainInner() {
       return
     }
 
-    const [{ data: routine }, { data: daysData }] = await Promise.all([
+    const [{ data: routine }, { data: daysData }, { data: res }] = await Promise.all([
       supabase.from('routines').select('name').eq('id', activeId).maybeSingle(),
       supabase
         .from('routine_days')
         .select('id, name, position, routine_exercises(exercise:exercises(muscle:muscles(slug)))')
         .eq('routine_id', activeId)
         .order('position'),
+      supabase
+        .from('routine_exercises')
+        .select('exercise_id, rest_seconds, exercise:exercises(id, name, muscle:muscles(slug, name)), sets:routine_exercise_sets(set_number, reps)')
+        .eq('routine_id', activeId)
+        .order('position'),
     ])
 
     setRoutineName((routine as { name: string } | null)?.name ?? null)
     setDays((daysData as unknown as DayRow[]) || [])
+
+    // Ejercicios de la rutina (deduplicados) para armar un entrenamiento a medida.
+    const map = new Map<string, CustomItem>()
+    ;(res || []).forEach((re: any) => {
+      if (map.has(re.exercise_id)) return
+      const ex = Array.isArray(re.exercise) ? re.exercise[0] : re.exercise
+      const m = ex && (Array.isArray(ex.muscle) ? ex.muscle[0] : ex.muscle)
+      map.set(re.exercise_id, {
+        exercise_id: re.exercise_id,
+        name: ex?.name ?? 'Ejercicio',
+        muscleSlug: m?.slug ?? null,
+        muscleName: m?.name ?? null,
+        restSeconds: re.rest_seconds ?? null,
+        sets: (re.sets || []).slice().sort((a: any, b: any) => a.set_number - b.set_number),
+      })
+    })
+    setItems([...map.values()])
     setLoading(false)
+  }
+
+  const toggleItem = (id: string) =>
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+
+  const startCustom = async () => {
+    if (selected.length === 0) return
+    setStartingCustom(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: workout, error } = await supabase
+      .from('workouts')
+      .insert({
+        user_id: user?.id,
+        ...(date ? { started_at: new Date(`${date}T12:00:00`).toISOString() } : {}),
+      })
+      .select()
+      .single()
+    if (error || !workout) {
+      setStartingCustom(false)
+      return
+    }
+    const chosen = items.filter((it) => selected.includes(it.exercise_id))
+    const rows = chosen.flatMap((it) => {
+      const sets = it.sets.length ? it.sets : [{ set_number: 1, reps: null }]
+      return sets.map((s) => ({
+        workout_id: workout.id,
+        exercise_id: it.exercise_id,
+        set_number: s.set_number,
+        reps_target: s.reps,
+        rest_seconds: it.restSeconds,
+        completed: false,
+      }))
+    })
+    if (rows.length) await supabase.from('sets').insert(rows)
+    router.push(`/train/${workout.id}`)
   }
 
   const startDay = async (dayId: string) => {
@@ -172,7 +243,7 @@ function TrainInner() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', pb: 12 }}>
+    <Box sx={{ minHeight: '100vh', pb: selected.length > 0 ? 20 : 12 }}>
       {/* Header */}
       <Box sx={{ px: 3, pt: 4, pb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
@@ -244,14 +315,45 @@ function TrainInner() {
               )
             })}
 
-            <Button
-              variant="outlined"
-              color="primary"
-              href={date ? `/train/custom?date=${date}` : '/train/custom'}
-              sx={{ mt: 1 }}
-            >
-              Armar entrenamiento custom
-            </Button>
+            {/* Armá tu propio entrenamiento eligiendo ejercicios de la rutina */}
+            {items.length > 0 && (
+              <>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, mt: 2 }}
+                >
+                  O armá el tuyo
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                  {items.map((it) => {
+                    const isSelected = selected.includes(it.exercise_id)
+                    return (
+                      <Card key={it.exercise_id} sx={isSelected ? gradientBorderSx(18) : { borderRadius: '18px' }}>
+                        <CardActionArea onClick={() => toggleItem(it.exercise_id)} sx={{ height: '100%' }}>
+                          <Box sx={{ aspectRatio: '1 / 1', p: 1.5, display: 'flex', flexDirection: 'column' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Typography sx={{ fontSize: '1.6rem' }}>
+                                {muscleEmoji(it.muscleSlug) || '🏋️'}
+                              </Typography>
+                              {isSelected && <CheckCircleIcon sx={{ color: 'primary.main' }} />}
+                            </Box>
+                            <Box sx={{ flex: 1 }} />
+                            <Typography variant="body1" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                              {it.name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {muscleLabel(it.muscleSlug ?? undefined, it.muscleName ?? '')}
+                              {it.sets.length ? ` · ${it.sets.length} series` : ''}
+                            </Typography>
+                          </Box>
+                        </CardActionArea>
+                      </Card>
+                    )
+                  })}
+                </Box>
+              </>
+            )}
           </>
         )}
 
@@ -259,11 +361,21 @@ function TrainInner() {
           variant="outlined"
           color="inherit"
           href={date ? `/train/free?date=${date}` : '/train/free'}
-          sx={{ mt: routineName ? 0 : 2 }}
+          sx={{ mt: routineName ? 1 : 2 }}
         >
           Entrenamiento libre
         </Button>
       </Box>
+
+      {selected.length > 0 && (
+        <Box sx={{ position: 'fixed', bottom: '96px', left: '50%', transform: 'translateX(-50%)', width: 'min(568px, calc(100% - 32px))', zIndex: 11 }}>
+          <Button variant="contained" size="large" fullWidth onClick={startCustom} disabled={startingCustom}>
+            {startingCustom
+              ? 'Guardando...'
+              : `${date ? 'Agregar entrenamiento' : 'Iniciar entrenamiento'} (${selected.length})`}
+          </Button>
+        </Box>
+      )}
     </Box>
   )
 }
