@@ -33,6 +33,7 @@ import { initialOf, avatarUrl } from '@/lib/user'
 import { usePathname, useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { RestTimerProvider } from '@/components/RestTimer'
+import { alpha } from '@mui/material/styles'
 
 // Acciones primarias, siempre visibles abajo.
 const BOTTOM_TABS = [
@@ -229,10 +230,10 @@ export default function AppLayout({
           borderRadius: 999,
           border: '1px solid',
           borderColor: 'divider',
-          bgcolor: 'rgba(20,20,20,0.75)',
+          bgcolor: (t) => alpha(t.palette.background.paper, 0.8),
           backdropFilter: 'blur(16px)',
           WebkitBackdropFilter: 'blur(16px)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
+          boxShadow: (t) => `0 8px 32px ${alpha(t.palette.common.black, t.palette.mode === 'light' ? 0.15 : 0.55)}`,
           overflow: 'hidden',
         }}
       >
