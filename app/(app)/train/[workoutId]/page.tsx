@@ -10,6 +10,8 @@ import Chip from '@mui/material/Chip'
 import Slider from '@mui/material/Slider'
 import TextField from '@mui/material/TextField'
 import Checkbox from '@mui/material/Checkbox'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import LinearProgress from '@mui/material/LinearProgress'
 import IconButton from '@mui/material/IconButton'
@@ -52,6 +54,21 @@ const CELEBRATIONS = [
 
 function emoji(v: number | null) {
   return FEELINGS.find((f) => f.v === v)?.e ?? ''
+}
+
+// Formatea el valor realizado según la unidad del ejercicio.
+function fmtValue(unit: string, distanceUnit: string | null, val: number | null): string {
+  if (val == null) return ''
+  if (unit === 'time') {
+    const m = Math.floor(val / 60)
+    const s = val % 60
+    return `${m}:${String(s).padStart(2, '0')}`
+  }
+  if (unit === 'distance') {
+    return distanceUnit === 'km' ? `${val / 1000} km` : `${val} m`
+  }
+  if (unit === 'steps') return `${val} pasos`
+  return `${val} reps`
 }
 
 type SetRow = {
@@ -103,9 +120,13 @@ export default function WorkoutPage() {
   const [shareSel, setShareSel] = useState<string[]>([])
   const [shared, setShared] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [marking, setMarking] = useState<{ set: SetRow; exName: string; unitLabel: string; unit: string } | null>(null)
+  const [marking, setMarking] = useState<{ set: SetRow; exName: string; unitLabel: string; unit: string; distanceUnit: string | null } | null>(null)
   const [weight, setWeight] = useState('')
   const [reps, setReps] = useState('')
+  const [minutes, setMinutes] = useState('')
+  const [seconds, setSeconds] = useState('')
+  const [distanceVal, setDistanceVal] = useState('')
+  const [distUnit, setDistUnit] = useState<'km' | 'm'>('m')
   const [feeling, setFeeling] = useState(3)
   const router = useRouter()
   const params = useParams()
@@ -249,7 +270,7 @@ export default function WorkoutPage() {
 
   const openMark = (set: SetRow, ex: ExerciseWithSets) => {
     const exId = ex.id
-    setMarking({ set, exName: ex.name, unitLabel: unitShort(ex.unit, ex.distance_unit), unit: ex.unit })
+    setMarking({ set, exName: ex.name, unitLabel: unitShort(ex.unit, ex.distance_unit), unit: ex.unit, distanceUnit: ex.distance_unit })
     setWeight(
       set.weight != null
         ? String(set.weight)
@@ -260,14 +281,43 @@ export default function WorkoutPage() {
         : ''
     )
     setFeeling(set.feeling ?? 3)
-    setReps(set.reps_actual != null ? String(set.reps_actual) : set.reps_target != null ? String(set.reps_target) : '')
+
+    // Valor base (lo realmente hecho, o el objetivo de la rutina).
+    const base = set.reps_actual != null ? set.reps_actual : set.reps_target
+    if (ex.unit === 'time') {
+      const total = base ?? 0
+      setMinutes(base != null ? String(Math.floor(total / 60)) : '')
+      setSeconds(base != null ? String(total % 60) : '')
+      setReps('')
+    } else if (ex.unit === 'distance') {
+      const unit = ex.distance_unit === 'km' ? 'km' : 'm'
+      setDistUnit(unit)
+      setDistanceVal(base != null ? String(unit === 'km' ? base / 1000 : base) : '')
+      setReps('')
+    } else {
+      // reps / steps → entero
+      setReps(base != null ? String(base) : '')
+    }
   }
 
   const saveMark = async () => {
     if (!marking) return
     const setId = marking.set.id
     const w = weight.trim() === '' ? null : parseFloat(weight)
-    const r = reps.trim() === '' ? null : parseInt(reps)
+    // reps_actual guarda: reps/pasos (entero), tiempo (segundos totales) o distancia (metros).
+    let r: number | null
+    if (marking.unit === 'time') {
+      const totalSec = (parseInt(minutes) || 0) * 60 + (parseInt(seconds) || 0)
+      r = minutes.trim() === '' && seconds.trim() === '' ? null : totalSec
+    } else if (marking.unit === 'distance') {
+      if (distanceVal.trim() === '') r = null
+      else {
+        const val = parseFloat(distanceVal) || 0
+        r = Math.round(distUnit === 'km' ? val * 1000 : val)
+      }
+    } else {
+      r = reps.trim() === '' ? null : parseInt(reps)
+    }
     setExercises((prev) =>
       prev.map((ex) => ({
         ...ex,
@@ -754,11 +804,17 @@ export default function WorkoutPage() {
                       {set.set_number}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-                      {set.reps_target ? `${set.reps_target} ${unitShort(exercise.unit, exercise.distance_unit)}` : 'serie'}
+                      {set.reps_target != null ? fmtValue(exercise.unit, exercise.distance_unit, set.reps_target) : 'serie'}
                     </Typography>
                     {set.completed && (
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {set.weight != null ? `${set.weight} kg` : '—'} {emoji(set.feeling)}
+                        {[
+                          set.reps_actual != null ? fmtValue(exercise.unit, exercise.distance_unit, set.reps_actual) : null,
+                          set.weight != null ? `${set.weight} kg` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ') || '—'}{' '}
+                        {emoji(set.feeling)}
                       </Typography>
                     )}
                   </Box>
@@ -853,7 +909,7 @@ export default function WorkoutPage() {
             onChange={(e) => setWeight(e.target.value)}
             fullWidth
           />
-          {marking?.unit === 'reps' ? (
+          {marking?.unit === 'reps' && (
             <Box>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
                 Reps
@@ -865,13 +921,65 @@ export default function WorkoutPage() {
                 max={60}
               />
             </Box>
-          ) : (
+          )}
+          {marking?.unit === 'time' && (
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Tiempo
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  label="Minutos"
+                  type="number"
+                  value={minutes}
+                  onChange={(e) => setMinutes(e.target.value)}
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
+                <TextField
+                  label="Segundos"
+                  type="number"
+                  value={seconds}
+                  onChange={(e) => setSeconds(e.target.value)}
+                  fullWidth
+                  slotProps={{ htmlInput: { min: 0, max: 59 } }}
+                />
+              </Box>
+            </Box>
+          )}
+          {marking?.unit === 'distance' && (
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                Distancia
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <TextField
+                  label="Distancia"
+                  type="number"
+                  value={distanceVal}
+                  onChange={(e) => setDistanceVal(e.target.value)}
+                  fullWidth
+                />
+                <ToggleButtonGroup
+                  value={distUnit}
+                  exclusive
+                  onChange={(_, v) => v && setDistUnit(v)}
+                  size="small"
+                >
+                  <ToggleButton value="km">km</ToggleButton>
+                  <ToggleButton value="m">m</ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+            </Box>
+          )}
+          {marking?.unit === 'steps' && (
             <TextField
-              label={marking?.unitLabel ?? 'reps'}
+              label="Pasos"
               type="number"
               value={reps}
               onChange={(e) => setReps(e.target.value)}
               fullWidth
+              slotProps={{ htmlInput: { min: 0 } }}
             />
           )}
           <Box>
