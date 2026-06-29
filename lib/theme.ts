@@ -18,6 +18,15 @@ export function accentGradient(mode: ColorMode) {
   return mode === 'light' ? blueGradient : limeGradient
 }
 
+// Estilo para títulos destacados (ejercicios / rutinas): fuente display Archivo,
+// peso black y ancho expandido.
+export const displayTitleSx = {
+  fontFamily: 'var(--font-display), var(--font-instrument), sans-serif',
+  fontWeight: 900,
+  fontStretch: '112%',
+  letterSpacing: '0.005em',
+}
+
 // Borde con gradiente para elementos seleccionados/destacados. Se adapta al tema.
 export const gradientBorderSx = (radius = 16) => (t: { palette: { background: { paper: string }; primary: { main: string; dark: string } } }) => ({
   borderRadius: `${radius}px`,

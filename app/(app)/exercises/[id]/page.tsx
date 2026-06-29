@@ -23,6 +23,7 @@ import { isAdmin } from '@/lib/admin'
 import { equipmentLabel } from '@/lib/equipment'
 import { muscleLabel, muscleEmoji } from '@/lib/muscles'
 import { unitShort } from '@/lib/units'
+import { displayTitleSx } from '@/lib/theme'
 import Markdown from '@/components/Markdown'
 import { Exercise } from '@/types/database'
 import { useRouter, useParams } from 'next/navigation'
@@ -275,7 +276,7 @@ export default function ExerciseDetailPage() {
         {!loading && exercise && (
           <Typography
             variant="h4"
-            sx={{ position: 'absolute', left: 24, right: 24, bottom: 24, fontWeight: 800, color: '#fff' }}
+            sx={{ ...displayTitleSx, position: 'absolute', left: 24, right: 24, bottom: 24, color: '#fff' }}
           >
             {exercise.name}
           </Typography>

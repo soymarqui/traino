@@ -16,6 +16,7 @@ import ShareIcon from '@mui/icons-material/Share'
 import VerifiedIcon from '@mui/icons-material/Verified'
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt'
 import { createClient } from '@/lib/supabase/client'
+import { displayTitleSx } from '@/lib/theme'
 import { Equipment, Routine, RoutineDay, RoutineExercise, RoutineExerciseSet } from '@/types/database'
 import { useRouter, useParams } from 'next/navigation'
 
@@ -190,7 +191,7 @@ export default function PublicRoutinePage() {
         />
         {!loading && routine && (
           <Box sx={{ position: 'absolute', left: 24, right: 24, bottom: 20 }}>
-            <Typography variant="h4" sx={{ fontWeight: 800, color: '#fff' }}>
+            <Typography variant="h4" sx={{ ...displayTitleSx, color: '#fff' }}>
               {routine.name}
             </Typography>
             {owner?.handle && (

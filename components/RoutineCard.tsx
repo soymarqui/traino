@@ -6,6 +6,7 @@ import Button from '@mui/material/Button'
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import AddIcon from '@mui/icons-material/Add'
+import { displayTitleSx } from '@/lib/theme'
 
 // Card de rutina con portada de fondo, título, descripción y contadores
 // (💪 likes + seguidores). Reutilizable en perfil y resultados.
@@ -70,7 +71,7 @@ export default function RoutineCard({
         />
       )}
       <Box sx={{ position: 'relative', p: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: '0.01em', color: hasCover ? '#fff' : 'text.primary' }}>
+        <Typography variant="h6" sx={{ ...displayTitleSx, color: hasCover ? '#fff' : 'text.primary' }}>
           {name}
         </Typography>
 
