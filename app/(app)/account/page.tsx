@@ -18,7 +18,9 @@ import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
+import VerifiedIcon from '@mui/icons-material/Verified'
 import { createClient } from '@/lib/supabase/client'
+import { isAdmin } from '@/lib/admin'
 import { useRouter } from 'next/navigation'
 
 const GOALS = [
@@ -57,6 +59,12 @@ export default function AccountPage() {
   const [allowAdd, setAllowAdd] = useState(true)
   const [instagram, setInstagram] = useState('')
   const [instagramVis, setInstagramVis] = useState<'public' | 'contacts' | 'hidden'>('public')
+  const [isCertified, setIsCertified] = useState(false)
+  const [certStatus, setCertStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none')
+  const [certOpen, setCertOpen] = useState(false)
+  const [certNote, setCertNote] = useState('')
+  const [certFile, setCertFile] = useState<File | null>(null)
+  const [certSubmitting, setCertSubmitting] = useState(false)
   const [form, setForm] = useState({
     name: '',
     handle: '',
@@ -86,9 +94,19 @@ export default function AccountPage() {
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('handle, bio, identity, is_public, allow_community_add, instagram, instagram_visibility')
+          .select('handle, bio, identity, is_public, allow_community_add, instagram, instagram_visibility, is_certified')
           .eq('id', user.id)
           .maybeSingle()
+        setIsCertified(!!profile?.is_certified)
+
+        const { data: lastReq } = await supabase
+          .from('certification_requests')
+          .select('status')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (lastReq?.status) setCertStatus(lastReq.status as 'pending' | 'approved' | 'rejected')
         handle = profile?.handle ?? ''
         bio = profile?.bio ?? ''
         identity = profile?.identity ?? ''
@@ -199,6 +217,26 @@ export default function AccountPage() {
     setSaved(true)
   }
 
+  const submitCert = async () => {
+    if (!userId || !certFile) return
+    setCertSubmitting(true)
+    const ext = (certFile.name.split('.').pop() || 'pdf').toLowerCase()
+    const path = `${userId}/cert-${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage.from('certifications').upload(path, certFile)
+    if (upErr) {
+      setCertSubmitting(false)
+      setError('No se pudo subir el documento.')
+      return
+    }
+    await supabase.from('certification_requests').insert({ user_id: userId, document_url: path, note: certNote.trim() || null })
+    setCertSubmitting(false)
+    setCertOpen(false)
+    setCertNote('')
+    setCertFile(null)
+    setCertStatus('pending')
+    setSaved(true)
+  }
+
   const handleDeleteAccount = async () => {
     setDeleting(true)
     const res = await fetch('/api/delete-account', { method: 'POST' })
@@ -291,6 +329,42 @@ export default function AccountPage() {
               <Chip label="Próximamente" size="small" />
             </CardContent>
           </Card>
+        </Box>
+
+        {/* Certificación */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+            Certificación
+          </Typography>
+          <Card>
+            <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <VerifiedIcon sx={{ color: isCertified ? 'primary.main' : 'text.secondary' }} />
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                  {isCertified ? 'Perfil certificado' : 'Profesores y entrenadores'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {isCertified
+                    ? 'Tu perfil muestra el badge de verificación.'
+                    : certStatus === 'pending'
+                    ? 'Tu solicitud está en revisión.'
+                    : certStatus === 'rejected'
+                    ? 'Tu solicitud fue rechazada. Podés volver a enviarla.'
+                    : 'Solicitá la certificación adjuntando tu título o certificado.'}
+                </Typography>
+              </Box>
+              {!isCertified && certStatus !== 'pending' && (
+                <Button size="small" variant="outlined" onClick={() => setCertOpen(true)}>
+                  Solicitar
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+          {isAdmin(email) && (
+            <Button size="small" onClick={() => router.push('/admin/certifications')} sx={{ alignSelf: 'flex-start' }}>
+              Panel de certificaciones (admin)
+            </Button>
+          )}
         </Box>
 
         {/* Datos del perfil */}
@@ -392,6 +466,35 @@ export default function AccountPage() {
           Borrar cuenta
         </Button>
       </Box>
+
+      {/* Solicitar certificación */}
+      <Dialog open={certOpen} onClose={() => setCertOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Solicitar certificación</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Adjuntá tu título, certificado o documentación que acredite tu formación. El equipo de Traino lo revisa manualmente.
+          </Typography>
+          <Button variant="outlined" color="inherit" component="label">
+            {certFile ? certFile.name : 'Adjuntar documento'}
+            <input type="file" accept="image/*,application/pdf" hidden onChange={(e) => setCertFile(e.target.files?.[0] ?? null)} />
+          </Button>
+          <TextField
+            label="Nota (opcional)"
+            value={certNote}
+            onChange={(e) => setCertNote(e.target.value)}
+            fullWidth
+            multiline
+            rows={2}
+            placeholder="Contanos sobre tu formación o experiencia."
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setCertOpen(false)}>Cancelar</Button>
+          <Button variant="contained" onClick={submitCert} disabled={certSubmitting || !certFile}>
+            {certSubmitting ? 'Enviando...' : 'Enviar solicitud'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Borrar cuenta</DialogTitle>

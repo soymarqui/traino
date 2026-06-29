@@ -30,11 +30,13 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import PersonIcon from '@mui/icons-material/Person'
 import ChecklistIcon from '@mui/icons-material/Checklist'
+import VerifiedIcon from '@mui/icons-material/Verified'
+import { gradientBorderSx } from '@/lib/theme'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-type Result = { id: string; name: string; handle: string | null; description?: string | null; cover_url?: string | null }
-type UserResult = { id: string; handle: string | null; display_name: string | null; avatar_url: string | null }
+type Result = { id: string; name: string; handle: string | null; description?: string | null; cover_url?: string | null; certified?: boolean }
+type UserResult = { id: string; handle: string | null; display_name: string | null; avatar_url: string | null; is_certified?: boolean }
 type ChallengeResult = { id: string; name: string; objective: string | null; group_id: string | null }
 type GroupRow = { id: string; name: string; role: string }
 type FeedPost = {
@@ -391,14 +393,18 @@ export default function FriendsPage() {
     // 1) Usuarios públicos (por handle o nombre).
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, handle, display_name, avatar_url')
+      .select('id, handle, display_name, avatar_url, is_certified')
       .or(`handle.ilike.${like},display_name.ilike.${like}`)
       .eq('is_public', true)
       .limit(15)
     const profs = (profiles as UserResult[]) || []
     setUserResults(profs)
     const handleById: Record<string, string | null> = {}
-    profs.forEach((p) => (handleById[p.id] = p.handle))
+    const certifiedById: Record<string, boolean> = {}
+    profs.forEach((p) => {
+      handleById[p.id] = p.handle
+      certifiedById[p.id] = !!p.is_certified
+    })
 
     // 2) Rutinas públicas: por nombre, o de los usuarios encontrados.
     const ownerIds = profs.map((p) => p.id)
@@ -413,17 +419,24 @@ export default function FriendsPage() {
     // Completar handles de dueños que no estaban entre los usuarios encontrados.
     const missingOwners = [...new Set((routines || []).map((r: any) => r.owner_id).filter((id: string) => !(id in handleById)))]
     if (missingOwners.length) {
-      const { data: owners } = await supabase.from('profiles').select('id, handle').in('id', missingOwners)
-      ;(owners || []).forEach((o: { id: string; handle: string | null }) => (handleById[o.id] = o.handle))
+      const { data: owners } = await supabase.from('profiles').select('id, handle, is_certified').in('id', missingOwners)
+      ;(owners || []).forEach((o: { id: string; handle: string | null; is_certified: boolean }) => {
+        handleById[o.id] = o.handle
+        certifiedById[o.id] = !!o.is_certified
+      })
     }
     setResults(
-      ((routines as { id: string; name: string; owner_id: string; description: string | null; cover_url: string | null }[]) || []).map((r) => ({
-        id: r.id,
-        name: r.name,
-        handle: handleById[r.owner_id] ?? null,
-        description: r.description,
-        cover_url: r.cover_url,
-      }))
+      ((routines as { id: string; name: string; owner_id: string; description: string | null; cover_url: string | null }[]) || [])
+        .map((r) => ({
+          id: r.id,
+          name: r.name,
+          handle: handleById[r.owner_id] ?? null,
+          description: r.description,
+          cover_url: r.cover_url,
+          certified: certifiedById[r.owner_id] ?? false,
+        }))
+        // Destacar primero las rutinas de usuarios certificados.
+        .sort((a, b) => Number(b.certified) - Number(a.certified))
     )
 
     // 3) Comunidades públicas (por nombre).
@@ -644,9 +657,12 @@ export default function FriendsPage() {
                       {(u.display_name || u.handle || '?')[0]?.toUpperCase()}
                     </Avatar>
                     <Box sx={{ flex: 1 }}>
-                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                        {u.display_name || (u.handle ? `@${u.handle}` : 'Usuario')}
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                          {u.display_name || (u.handle ? `@${u.handle}` : 'Usuario')}
+                        </Typography>
+                        {u.is_certified && <VerifiedIcon sx={{ color: 'primary.main', fontSize: 16 }} />}
+                      </Box>
                       {u.handle && (
                         <Typography variant="caption" color="text.secondary">@{u.handle}</Typography>
                       )}
@@ -693,7 +709,10 @@ export default function FriendsPage() {
               Rutinas
             </Typography>
             {results.map((r) => (
-              <Card key={r.id} sx={{ borderLeft: '3px solid', borderColor: 'success.main' }}>
+              <Card
+                key={r.id}
+                sx={r.certified ? gradientBorderSx(18) : { borderLeft: '3px solid', borderColor: 'success.main' }}
+              >
                 <CardActionArea onClick={() => router.push(`/r/${r.id}`)}>
                   {r.cover_url && (
                     <Box component="img" src={r.cover_url} alt="" sx={{ width: '100%', height: 120, objectFit: 'cover', display: 'block' }} />
@@ -701,7 +720,10 @@ export default function FriendsPage() {
                   <CardContent sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, py: '12px !important' }}>
                     <ChecklistIcon sx={{ color: 'success.main', mt: 0.3 }} />
                     <Box sx={{ flex: 1 }}>
-                      <Typography variant="body1" sx={{ fontWeight: 600 }}>{r.name}</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Typography variant="body1" sx={{ fontWeight: 600 }}>{r.name}</Typography>
+                        {r.certified && <Chip icon={<VerifiedIcon />} label="Certificada" size="small" color="primary" sx={{ height: 20 }} />}
+                      </Box>
                       {r.handle && (
                         <Typography variant="caption" color="text.secondary">por @{r.handle}</Typography>
                       )}

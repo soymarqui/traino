@@ -17,6 +17,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import GroupAddIcon from '@mui/icons-material/GroupAdd'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import InstagramIcon from '@mui/icons-material/Instagram'
+import VerifiedIcon from '@mui/icons-material/Verified'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useParams } from 'next/navigation'
 
@@ -31,6 +32,7 @@ type Profile = {
   identity: string | null
   instagram: string | null
   instagram_visibility: 'public' | 'contacts' | 'hidden'
+  is_certified: boolean
 }
 
 export default function UserProfilePage() {
@@ -57,7 +59,7 @@ export default function UserProfilePage() {
     const { data: { user } } = await supabase.auth.getUser()
     const { data: prof } = await supabase
       .from('profiles')
-      .select('id, handle, display_name, avatar_url, bio, identity, instagram, instagram_visibility')
+      .select('id, handle, display_name, avatar_url, bio, identity, instagram, instagram_visibility, is_certified')
       .eq('handle', handle)
       .maybeSingle()
     setProfile(prof as Profile | null)
@@ -156,9 +158,12 @@ export default function UserProfilePage() {
                 {name[0]?.toUpperCase()}
               </Avatar>
               <Box sx={{ flex: 1 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                  {name}
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    {name}
+                  </Typography>
+                  {profile.is_certified && <VerifiedIcon sx={{ color: 'primary.main', fontSize: 20 }} titleAccess="Perfil certificado" />}
+                </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   {profile.handle && (
                     <Typography variant="body2" color="text.secondary">
