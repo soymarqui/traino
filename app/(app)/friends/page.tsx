@@ -361,15 +361,7 @@ export default function FriendsPage() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', pb: 12 }}>
-      <Box sx={{ px: 3, pt: 4, pb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Comunidades
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Tus grupos, el feed y los desafíos. Usá 🔍 arriba para buscar.
-        </Typography>
-      </Box>
+    <Box sx={{ minHeight: '100vh', pt: 2, pb: 12 }}>
 
       {/* Mis grupos */}
       <Box sx={{ px: 3, pb: 2 }}>
