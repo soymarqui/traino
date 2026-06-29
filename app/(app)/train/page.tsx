@@ -212,7 +212,7 @@ function TrainInner() {
               color="text.secondary"
               sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}
             >
-              ¿Qué hacés hoy?
+              {date ? `¿Qué hiciste el ${formatDateLabel(date)}?` : '¿Qué hacés hoy?'}
             </Typography>
 
             {days.map((day) => {
@@ -236,7 +236,7 @@ function TrainInner() {
                         )}
                       </Box>
                       <Typography variant="body2" color="text.secondary">
-                        {count} ejercicios{starting === day.id ? ' · empezando...' : ''}
+                        {count} ejercicios{starting === day.id ? (date ? ' · agregando...' : ' · empezando...') : ''}
                       </Typography>
                     </CardContent>
                   </CardActionArea>

@@ -203,7 +203,9 @@ function FreeTrainInner() {
       {selected.length > 0 && (
         <Box sx={{ position: 'fixed', bottom: '96px', left: '50%', transform: 'translateX(-50%)', width: 'min(568px, calc(100% - 32px))', zIndex: 11 }}>
           <Button variant="contained" size="large" fullWidth onClick={handleStart} disabled={starting}>
-            {starting ? 'Empezando...' : `Empezar entrenamiento (${selected.length})`}
+            {starting
+              ? 'Guardando...'
+              : `${date ? 'Agregar entrenamiento' : 'Empezar entrenamiento'} (${selected.length})`}
           </Button>
         </Box>
       )}
