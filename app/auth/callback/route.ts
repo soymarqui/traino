@@ -12,6 +12,18 @@ export async function GET(request: Request) {
     const supabase = await createClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      // Si el perfil aún no tiene handle (ej: primer login con Google), completar perfil.
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('handle')
+          .eq('id', user.id)
+          .maybeSingle()
+        if (!profile?.handle) {
+          return NextResponse.redirect(`${origin}/onboarding`)
+        }
+      }
       return NextResponse.redirect(`${origin}${next}`)
     }
   }

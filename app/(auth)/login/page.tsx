@@ -5,9 +5,11 @@ import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
+import Divider from '@mui/material/Divider'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import GoogleButton from '@/components/GoogleButton'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -33,6 +35,13 @@ export default function LoginPage() {
     }
 
     router.push('/dashboard')
+  }
+
+  const handleGoogle = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    })
   }
 
   return (
@@ -87,6 +96,10 @@ export default function LoginPage() {
         >
           {loading ? 'Entrando...' : 'Entrar'}
         </Button>
+
+        <Divider sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>o</Divider>
+
+        <GoogleButton onClick={handleGoogle} label="Continuar con Google" />
 
         <Typography variant="body2" sx={{ textAlign: 'center' }}>
           <Link href="/forgot-password" style={{ color: '#888888' }}>
