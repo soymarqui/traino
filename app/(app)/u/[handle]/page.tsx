@@ -15,6 +15,8 @@ import MenuItem from '@mui/material/MenuItem'
 import Snackbar from '@mui/material/Snackbar'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import GroupAddIcon from '@mui/icons-material/GroupAdd'
+import PersonAddIcon from '@mui/icons-material/PersonAdd'
+import HowToRegIcon from '@mui/icons-material/HowToReg'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import InstagramIcon from '@mui/icons-material/Instagram'
 import VerifiedIcon from '@mui/icons-material/Verified'
@@ -44,6 +46,8 @@ export default function UserProfilePage() {
   const [adminGroups, setAdminGroups] = useState<{ id: string; name: string }[]>([])
   const [memberOf, setMemberOf] = useState<string[]>([])
   const [igVisible, setIgVisible] = useState(false)
+  const [meId, setMeId] = useState<string | null>(null)
+  const [friendship, setFriendship] = useState<{ id: string; requester_id: string; status: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [anchor, setAnchor] = useState<null | HTMLElement>(null)
   const [snack, setSnack] = useState('')
@@ -57,12 +61,24 @@ export default function UserProfilePage() {
   const load = async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
+    setMeId(user?.id ?? null)
     const { data: prof } = await supabase
       .from('profiles')
       .select('id, handle, display_name, avatar_url, bio, identity, instagram, instagram_visibility, is_certified')
       .eq('handle', handle)
       .maybeSingle()
     setProfile(prof as Profile | null)
+
+    // Estado de amistad entre el usuario actual y este perfil.
+    if (user && prof && (prof as Profile).id !== user.id) {
+      const pid = (prof as Profile).id
+      const { data: fr } = await supabase
+        .from('friendships')
+        .select('id, requester_id, addressee_id, status')
+        .or(`and(requester_id.eq.${user.id},addressee_id.eq.${pid}),and(requester_id.eq.${pid},addressee_id.eq.${user.id})`)
+        .maybeSingle()
+      setFriendship(fr ? { id: fr.id, requester_id: fr.requester_id, status: fr.status } : null)
+    }
 
     if (prof) {
       const { data: rts } = await supabase
@@ -115,6 +131,30 @@ export default function UserProfilePage() {
       }
     }
     setLoading(false)
+  }
+
+  const sendFriendRequest = async () => {
+    if (!meId || !profile) return
+    const { data } = await supabase
+      .from('friendships')
+      .insert({ requester_id: meId, addressee_id: profile.id, status: 'pending' })
+      .select('id, requester_id, status')
+      .single()
+    if (data) setFriendship(data as { id: string; requester_id: string; status: string })
+    setSnack('Solicitud enviada')
+  }
+
+  const acceptFriend = async () => {
+    if (!friendship) return
+    await supabase.from('friendships').update({ status: 'accepted' }).eq('id', friendship.id)
+    setFriendship({ ...friendship, status: 'accepted' })
+    setSnack('¡Ahora son amigos!')
+  }
+
+  const removeFriend = async () => {
+    if (!friendship) return
+    await supabase.from('friendships').delete().eq('id', friendship.id)
+    setFriendship(null)
   }
 
   const addToGroup = async (groupId: string) => {
@@ -181,6 +221,32 @@ export default function UserProfilePage() {
                 </IconButton>
               )}
             </Box>
+
+            {/* Acción de amistad (no en el propio perfil) */}
+            {meId && profile.id !== meId && (
+              <>
+                {!friendship && (
+                  <Button variant="contained" startIcon={<PersonAddIcon />} onClick={sendFriendRequest}>
+                    Agregar amigo
+                  </Button>
+                )}
+                {friendship?.status === 'pending' && friendship.requester_id === meId && (
+                  <Button variant="outlined" color="inherit" disabled>
+                    Solicitud enviada
+                  </Button>
+                )}
+                {friendship?.status === 'pending' && friendship.requester_id !== meId && (
+                  <Button variant="contained" startIcon={<PersonAddIcon />} onClick={acceptFriend}>
+                    Aceptar solicitud
+                  </Button>
+                )}
+                {friendship?.status === 'accepted' && (
+                  <Button variant="outlined" color="inherit" startIcon={<HowToRegIcon />} onClick={removeFriend}>
+                    Amigos · quitar
+                  </Button>
+                )}
+              </>
+            )}
 
             {profile.bio && (
               <Typography variant="body2" color="text.secondary">
