@@ -370,6 +370,7 @@ export default function FriendsPage() {
       .from('profiles')
       .select('id, handle')
       .ilike('handle', `${handle}%`)
+      .eq('is_public', true)
       .limit(10)
 
     const ids = (profiles || []).map((p: { id: string }) => p.id)
