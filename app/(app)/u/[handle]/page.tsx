@@ -18,6 +18,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import GroupAddIcon from '@mui/icons-material/GroupAdd'
 import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import HowToRegIcon from '@mui/icons-material/HowToReg'
+import EditIcon from '@mui/icons-material/Edit'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import InstagramIcon from '@mui/icons-material/Instagram'
 import VerifiedIcon from '@mui/icons-material/Verified'
@@ -332,6 +333,15 @@ export default function UserProfilePage() {
                     Amigos · quitar
                   </Button>
                 )}
+              </Box>
+            )}
+
+            {/* Perfil propio: editar */}
+            {meId && profile.id === meId && (
+              <Box sx={{ mt: 1, width: '100%', maxWidth: 320 }}>
+                <Button fullWidth variant="outlined" color="inherit" startIcon={<EditIcon />} onClick={() => router.push('/account')}>
+                  Editar perfil
+                </Button>
               </Box>
             )}
           </Box>

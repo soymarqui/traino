@@ -144,7 +144,7 @@ export default function AppLayout({
               <NotificationsNoneIcon />
             </Badge>
           </IconButton>
-          <IconButton onClick={() => router.push('/settings')} sx={{ p: 0 }} aria-label="perfil">
+          <IconButton onClick={() => router.push(handle ? `/u/${handle}` : '/account')} sx={{ p: 0 }} aria-label="mi perfil">
             <Avatar
               src={avatarUrl(user) || undefined}
               sx={{
