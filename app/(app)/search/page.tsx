@@ -16,7 +16,7 @@ import Snackbar from '@mui/material/Snackbar'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SearchIcon from '@mui/icons-material/Search'
 import GroupIcon from '@mui/icons-material/Group'
-import PersonIcon from '@mui/icons-material/Person'
+import PersonAddIcon from '@mui/icons-material/PersonAdd'
 import ChecklistIcon from '@mui/icons-material/Checklist'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import VerifiedIcon from '@mui/icons-material/Verified'
@@ -79,6 +79,30 @@ export default function SearchPage() {
       setSnack('¡Te uniste a la comunidad!')
     } else {
       setSnack('No se pudo unir (¿ya sos miembro?)')
+    }
+  }
+
+  // Enviar / aceptar solicitud de amistad desde el resultado de búsqueda.
+  const addFriend = async (targetId: string) => {
+    if (!userId) return
+    const current = friendBy[targetId]
+    if (current === 'received') {
+      // Ya me solicitó → aceptar.
+      await supabase
+        .from('friendships')
+        .update({ status: 'accepted' })
+        .eq('requester_id', targetId)
+        .eq('addressee_id', userId)
+      setFriendBy((prev) => ({ ...prev, [targetId]: 'friends' }))
+      setSnack('¡Ahora son amigos!')
+      return
+    }
+    const { error } = await supabase.from('friendships').insert({ requester_id: userId, addressee_id: targetId, status: 'pending' })
+    if (!error) {
+      setFriendBy((prev) => ({ ...prev, [targetId]: 'sent' }))
+      setSnack('Solicitud enviada')
+    } else {
+      setSnack('No se pudo enviar la solicitud')
     }
   }
 
@@ -216,12 +240,15 @@ export default function SearchPage() {
             </Typography>
             {userResults.map((u) => (
               <Card key={u.id} sx={{ borderLeft: '3px solid', borderColor: 'info.main' }}>
-                <CardActionArea disabled={!u.handle} onClick={() => u.handle && router.push(`/u/${u.handle}`)}>
-                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
+                <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
+                  <Box
+                    sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, cursor: u.handle ? 'pointer' : 'default', minWidth: 0 }}
+                    onClick={() => u.handle && router.push(`/u/${u.handle}`)}
+                  >
                     <Avatar src={u.avatar_url || undefined} sx={{ width: 36, height: 36 }}>
                       {(u.display_name || u.handle || '?')[0]?.toUpperCase()}
                     </Avatar>
-                    <Box sx={{ flex: 1 }}>
+                    <Box sx={{ minWidth: 0 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <Typography variant="body1" sx={{ fontWeight: 600 }}>
                           {u.display_name || (u.handle ? `@${u.handle}` : 'Usuario')}
@@ -230,12 +257,20 @@ export default function SearchPage() {
                       </Box>
                       {u.handle && <Typography variant="caption" color="text.secondary">@{u.handle}</Typography>}
                     </Box>
-                    {friendBy[u.id] === 'friends' && <Chip label="Amigos" size="small" color="primary" />}
-                    {friendBy[u.id] === 'sent' && <Chip label="Pendiente" size="small" />}
-                    {friendBy[u.id] === 'received' && <Chip label="Te solicitó" size="small" color="primary" variant="outlined" />}
-                    {!friendBy[u.id] && <PersonIcon sx={{ color: 'text.secondary' }} />}
-                  </CardContent>
-                </CardActionArea>
+                  </Box>
+                  {friendBy[u.id] === 'friends' && <Chip label="Amigos" size="small" color="primary" />}
+                  {friendBy[u.id] === 'sent' && <Chip label="Pendiente" size="small" />}
+                  {friendBy[u.id] === 'received' && (
+                    <Button size="small" variant="contained" startIcon={<PersonAddIcon />} onClick={() => addFriend(u.id)}>
+                      Aceptar
+                    </Button>
+                  )}
+                  {!friendBy[u.id] && (
+                    <Button size="small" variant="outlined" startIcon={<PersonAddIcon />} onClick={() => addFriend(u.id)}>
+                      Agregar
+                    </Button>
+                  )}
+                </CardContent>
               </Card>
             ))}
           </>
