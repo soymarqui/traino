@@ -11,7 +11,7 @@ import TextField from '@mui/material/TextField'
 import InputAdornment from '@mui/material/InputAdornment'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
-import Avatar from '@mui/material/Avatar'
+import UserAvatar from '@/components/UserAvatar'
 import Snackbar from '@mui/material/Snackbar'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SearchIcon from '@mui/icons-material/Search'
@@ -245,9 +245,7 @@ export default function SearchPage() {
                     sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, cursor: u.handle ? 'pointer' : 'default', minWidth: 0 }}
                     onClick={() => u.handle && router.push(`/u/${u.handle}`)}
                   >
-                    <Avatar src={u.avatar_url || undefined} sx={{ width: 36, height: 36 }}>
-                      {(u.display_name || u.handle || '?')[0]?.toUpperCase()}
-                    </Avatar>
+                    <UserAvatar src={u.avatar_url} name={u.display_name || u.handle} size={36} />
                     <Box sx={{ minWidth: 0 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <Typography variant="body1" sx={{ fontWeight: 600 }}>

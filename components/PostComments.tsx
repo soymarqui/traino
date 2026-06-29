@@ -4,7 +4,6 @@ import { useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
-import Avatar from '@mui/material/Avatar'
 import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
@@ -13,6 +12,7 @@ import DialogContent from '@mui/material/DialogContent'
 import CommentOutlinedIcon from '@mui/icons-material/CommentOutlined'
 import SendIcon from '@mui/icons-material/Send'
 import { createClient } from '@/lib/supabase/client'
+import UserAvatar from '@/components/UserAvatar'
 
 type CommentRow = {
   id: string
@@ -97,9 +97,7 @@ export default function PostComments({
           )}
           {list.map((c) => (
             <Box key={c.id} sx={{ display: 'flex', gap: 1.5 }}>
-              <Avatar src={c.avatar_url || undefined} sx={{ width: 32, height: 32, fontSize: '0.85rem' }}>
-                {nameOf(c)[1]?.toUpperCase()}
-              </Avatar>
+              <UserAvatar src={c.avatar_url} name={nameOf(c)} size={32} />
               <Box sx={{ flex: 1 }}>
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>{nameOf(c)}</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>{c.body}</Typography>

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
-import Avatar from '@mui/material/Avatar'
 import Chip from '@mui/material/Chip'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
@@ -25,6 +24,7 @@ import VerifiedIcon from '@mui/icons-material/Verified'
 import { createClient } from '@/lib/supabase/client'
 import { duplicateRoutine } from '@/lib/routines'
 import RoutineCard from '@/components/RoutineCard'
+import UserAvatar from '@/components/UserAvatar'
 import { useRouter, useParams } from 'next/navigation'
 
 const IDENTITY_LABELS: Record<string, string> = { gymbro: 'GymBro', gymsis: 'GymSis', gympal: 'GymPal' }
@@ -273,12 +273,12 @@ export default function UserProfilePage() {
 
           {/* Cabecera centrada */}
           <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 1 }}>
-            <Avatar
-              src={profile.avatar_url || undefined}
-              sx={{ width: 96, height: 96, fontSize: '2.2rem', mt: '-48px', border: '4px solid', borderColor: 'background.default', bgcolor: 'primary.main', color: '#0A0A0A', fontWeight: 700 }}
-            >
-              {name[0]?.toUpperCase()}
-            </Avatar>
+            <UserAvatar
+              src={profile.avatar_url}
+              name={name}
+              size={96}
+              sx={{ mt: '-48px', border: '4px solid', borderColor: 'background.default' }}
+            />
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Typography variant="h5" sx={{ fontWeight: 800 }}>{name}</Typography>

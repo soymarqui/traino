@@ -5,7 +5,6 @@ import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
-import Avatar from '@mui/material/Avatar'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import Chip from '@mui/material/Chip'
@@ -13,6 +12,7 @@ import Snackbar from '@mui/material/Snackbar'
 import GroupIcon from '@mui/icons-material/Group'
 import CloseIcon from '@mui/icons-material/Close'
 import { createClient } from '@/lib/supabase/client'
+import UserAvatar from '@/components/UserAvatar'
 import { useRouter } from 'next/navigation'
 
 type Profile = { id: string; handle: string | null; display_name: string | null; avatar_url: string | null }
@@ -107,9 +107,7 @@ export default function AmigosPage() {
               return (
                 <Card key={r.id}>
                   <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
-                    <Avatar src={profiles[oid]?.avatar_url || undefined} sx={{ width: 40, height: 40 }} onClick={() => goProfile(oid)}>
-                      {nameOf(oid)[1]?.toUpperCase()}
-                    </Avatar>
+                    <UserAvatar src={profiles[oid]?.avatar_url} name={nameOf(oid)} size={40} onClick={() => goProfile(oid)} />
                     <Typography variant="body1" sx={{ fontWeight: 600, flex: 1 }}>{nameOf(oid)}</Typography>
                     <Button size="small" variant="contained" onClick={() => accept(r.id)}>Aceptar</Button>
                     <Button size="small" color="inherit" onClick={() => remove(r.id)}>Rechazar</Button>
@@ -139,9 +137,7 @@ export default function AmigosPage() {
               return (
                 <Card key={r.id}>
                   <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
-                    <Avatar src={profiles[oid]?.avatar_url || undefined} sx={{ width: 40, height: 40, cursor: 'pointer' }} onClick={() => goProfile(oid)}>
-                      {nameOf(oid)[1]?.toUpperCase()}
-                    </Avatar>
+                    <UserAvatar src={profiles[oid]?.avatar_url} name={nameOf(oid)} size={40} onClick={() => goProfile(oid)} />
                     <Typography variant="body1" sx={{ fontWeight: 600, flex: 1, cursor: 'pointer' }} onClick={() => goProfile(oid)}>
                       {nameOf(oid)}
                     </Typography>
@@ -166,9 +162,7 @@ export default function AmigosPage() {
               return (
                 <Card key={r.id}>
                   <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
-                    <Avatar src={profiles[oid]?.avatar_url || undefined} sx={{ width: 40, height: 40 }}>
-                      {nameOf(oid)[1]?.toUpperCase()}
-                    </Avatar>
+                    <UserAvatar src={profiles[oid]?.avatar_url} name={nameOf(oid)} size={40} />
                     <Typography variant="body1" sx={{ fontWeight: 600, flex: 1 }}>{nameOf(oid)}</Typography>
                     <Chip label="Enviada" size="small" />
                     <IconButton size="small" onClick={() => remove(r.id)} aria-label="Cancelar solicitud">

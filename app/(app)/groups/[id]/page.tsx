@@ -5,7 +5,6 @@ import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
-import Avatar from '@mui/material/Avatar'
 import Chip from '@mui/material/Chip'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
@@ -23,6 +22,7 @@ import AddIcon from '@mui/icons-material/Add'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import { createClient } from '@/lib/supabase/client'
 import PostComments from '@/components/PostComments'
+import UserAvatar from '@/components/UserAvatar'
 import { useRouter, useParams } from 'next/navigation'
 
 type Profile = { id: string; handle: string | null; display_name: string | null; avatar_url: string | null }
@@ -415,9 +415,7 @@ export default function GroupPage() {
                   )}
                   <CardContent>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                      <Avatar src={profiles[p.user_id]?.avatar_url || undefined} sx={{ width: 24, height: 24, fontSize: '0.8rem' }}>
-                        {nameOf(p.user_id)[1]?.toUpperCase()}
-                      </Avatar>
+                      <UserAvatar src={profiles[p.user_id]?.avatar_url} name={nameOf(p.user_id)} size={24} />
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>{nameOf(p.user_id)}</Typography>
                     </Box>
                     <Typography variant="body2" color="text.secondary">{p.summary || 'Compartió un entrenamiento'}</Typography>
@@ -456,9 +454,7 @@ export default function GroupPage() {
               </Box>
               {members.map((m) => (
                 <Box key={m.user_id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Avatar src={profiles[m.user_id]?.avatar_url || undefined} sx={{ width: 32, height: 32, fontSize: '0.9rem' }}>
-                    {nameOf(m.user_id)[1]?.toUpperCase()}
-                  </Avatar>
+                  <UserAvatar src={profiles[m.user_id]?.avatar_url} name={nameOf(m.user_id)} size={32} />
                   <Typography variant="body2" sx={{ flex: 1 }}>{nameOf(m.user_id)}</Typography>
                   {m.role === 'admin' && <Chip label="Admin" size="small" color="primary" />}
                 </Box>
