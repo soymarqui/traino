@@ -64,6 +64,7 @@ export default function AccountPage() {
   const [cover, setCover] = useState('')
   const [uploadingCover, setUploadingCover] = useState(false)
   const coverRef = useRef<HTMLInputElement>(null)
+  const [goals, setGoals] = useState<string[]>([])
   const [isCertified, setIsCertified] = useState(false)
   const [certStatus, setCertStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none')
   const [certOpen, setCertOpen] = useState(false)
@@ -123,6 +124,7 @@ export default function AccountPage() {
         setInstagramVis((profile?.instagram_visibility as 'public' | 'contacts' | 'hidden') ?? 'public')
       }
 
+      setGoals(Array.isArray(m.goals) ? m.goals : m.goal ? [m.goal] : [])
       setForm({
         name: m.full_name ?? '',
         handle,
@@ -216,7 +218,8 @@ export default function AccountPage() {
         age: num(form.age),
         height_cm: num(form.height),
         weight_kg: num(form.weight),
-        goal: form.goal || null,
+        goals,
+        goal: goals[0] ?? null,
         gender: form.gender || null,
         observations: form.observations.trim() || null,
       },
@@ -445,8 +448,26 @@ export default function AccountPage() {
             <TextField label="Peso (kg)" type="number" value={form.weight} onChange={(e) => set('weight', e.target.value)} fullWidth />
           </Box>
 
-          <TextField label="Objetivo de entrenamiento" value={form.goal} onChange={(e) => set('goal', e.target.value)} fullWidth select>
-            <MenuItem value="">Sin especificar</MenuItem>
+          <TextField
+            label="Objetivos de entrenamiento"
+            value={goals}
+            onChange={(e) => setGoals(typeof e.target.value === 'string' ? e.target.value.split(',') : (e.target.value as unknown as string[]))}
+            fullWidth
+            select
+            helperText="Podés elegir más de uno"
+            slotProps={{
+              select: {
+                multiple: true,
+                renderValue: (selected: unknown) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {(selected as string[]).map((v) => (
+                      <Chip key={v} size="small" label={GOALS.find((g) => g.value === v)?.label ?? v} />
+                    ))}
+                  </Box>
+                ),
+              },
+            }}
+          >
             {GOALS.map((g) => (
               <MenuItem key={g.value} value={g.value}>{g.label}</MenuItem>
             ))}

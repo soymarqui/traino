@@ -52,11 +52,11 @@ const INJURY_KEYWORDS: Record<string, string[]> = {
   antebrazos: ['antebrazo', 'muneca'],
 }
 
-function alignsWithGoal(goal: string | null | undefined, ex: Exercise): boolean {
-  if (!goal || ex.unit !== 'reps') return false
-  if (goal === 'ganar_musculo') return ex.suggested_sets >= 3 && ex.reps_min >= 6 && ex.reps_max <= 15
-  if (goal === 'bajar_peso') return ex.reps_max >= 12
-  if (goal === 'rendimiento') return ex.reps_min <= 6
+function alignsWithGoal(goals: string[], ex: Exercise): boolean {
+  if (!goals.length || ex.unit !== 'reps') return false
+  if (goals.includes('ganar_musculo') && ex.suggested_sets >= 3 && ex.reps_min >= 6 && ex.reps_max <= 15) return true
+  if (goals.includes('bajar_peso') && ex.reps_max >= 12) return true
+  if (goals.includes('rendimiento') && ex.reps_min <= 6) return true
   return false
 }
 
@@ -108,7 +108,7 @@ export default function ExerciseDetailPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [added, setAdded] = useState(false)
   const [admin, setAdmin] = useState(false)
-  const [goal, setGoal] = useState<string | null>(null)
+  const [goals, setGoals] = useState<string[]>([])
   const [observations, setObservations] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
   const [isFav, setIsFav] = useState(false)
@@ -124,7 +124,8 @@ export default function ExerciseDetailPage() {
     fetchExercise()
     supabase.auth.getUser().then(({ data: { user } }) => {
       setAdmin(isAdmin(user?.email))
-      setGoal((user?.user_metadata?.goal as string | undefined) ?? null)
+      const m = user?.user_metadata ?? {}
+      setGoals(Array.isArray(m.goals) ? m.goals : m.goal ? [m.goal] : [])
       setObservations((user?.user_metadata?.observations as string | undefined) ?? '')
       setUserId(user?.id ?? null)
       if (user) {
@@ -323,7 +324,7 @@ export default function ExerciseDetailPage() {
                     size="small"
                   />
                 )}
-                {alignsWithGoal(goal, exercise) && (
+                {alignsWithGoal(goals, exercise) && (
                   <Chip label="✅ Se alinea con tu objetivo" size="small" color="success" />
                 )}
                 {inActiveRoutine && (
