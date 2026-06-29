@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/client'
 import { equipmentLabel } from '@/lib/equipment'
 import { muscleLabel } from '@/lib/muscles'
 import { gradientBorderSx } from '@/lib/theme'
+import { useRestTimer } from '@/components/RestTimer'
 import { Exercise, Muscle } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -28,6 +29,7 @@ function FreeTrainInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const date = searchParams.get('date')
+  const { startCountdown } = useRestTimer()
   const supabase = createClient()
 
   useEffect(() => {
@@ -77,6 +79,7 @@ function FreeTrainInner() {
   const handleStart = async () => {
     if (selected.length === 0) return
     setStarting(true)
+    if (!date) startCountdown(5)
     const { data: { user } } = await supabase.auth.getUser()
     const { data: workout, error } = await supabase
       .from('workouts')

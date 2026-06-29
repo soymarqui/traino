@@ -993,7 +993,7 @@ export default function WorkoutPage() {
       )}
 
       {/* Countdown de descanso */}
-      {restActive && secondsLeft > 3 && (
+      {restActive && secondsLeft > 5 && (
         <Box
           sx={{
             position: 'fixed', bottom: '96px', left: '50%', transform: 'translateX(-50%)', width: 'min(568px, calc(100% - 32px))', zIndex: 11,

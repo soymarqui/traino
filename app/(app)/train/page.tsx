@@ -12,6 +12,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { createClient } from '@/lib/supabase/client'
 import { muscleEmoji, muscleLabel } from '@/lib/muscles'
 import { gradientBorderSx } from '@/lib/theme'
+import { useRestTimer } from '@/components/RestTimer'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 type DayRow = {
@@ -61,6 +62,7 @@ function TrainInner() {
   const searchParams = useSearchParams()
   const date = searchParams.get('date') // YYYY-MM-DD para registrar un día pasado
   const supabase = createClient()
+  const { startCountdown } = useRestTimer()
 
   useEffect(() => {
     load()
@@ -127,6 +129,7 @@ function TrainInner() {
   const startCustom = async () => {
     if (selected.length === 0) return
     setStartingCustom(true)
+    if (!date) startCountdown(5)
     const { data: { user } } = await supabase.auth.getUser()
     const { data: workout, error } = await supabase
       .from('workouts')
@@ -158,6 +161,7 @@ function TrainInner() {
 
   const startDay = async (dayId: string) => {
     setStarting(dayId)
+    if (!date) startCountdown(5)
     const { data: { user } } = await supabase.auth.getUser()
 
     const { data: exs } = await supabase
