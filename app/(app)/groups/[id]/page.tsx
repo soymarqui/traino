@@ -10,6 +10,7 @@ import Chip from '@mui/material/Chip'
 import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import TextField from '@mui/material/TextField'
+import MenuItem from '@mui/material/MenuItem'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
@@ -40,7 +41,7 @@ type ChallengeRow = {
 export default function GroupPage() {
   const params = useParams()
   const groupId = params.id as string
-  const [group, setGroup] = useState<{ name: string; owner_id: string } | null>(null)
+  const [group, setGroup] = useState<{ name: string; owner_id: string; visibility?: string } | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [members, setMembers] = useState<Member[]>([])
@@ -69,8 +70,8 @@ export default function GroupPage() {
     const { data: { user } } = await supabase.auth.getUser()
     setUserId(user?.id ?? null)
 
-    const { data: g } = await supabase.from('groups').select('name, owner_id').eq('id', groupId).maybeSingle()
-    setGroup(g as { name: string; owner_id: string } | null)
+    const { data: g } = await supabase.from('groups').select('name, owner_id, visibility').eq('id', groupId).maybeSingle()
+    setGroup(g as { name: string; owner_id: string; visibility?: string } | null)
 
     const { data: mem } = await supabase.from('group_members').select('user_id, role').eq('group_id', groupId)
     const members = (mem as Member[]) || []
@@ -181,6 +182,11 @@ export default function GroupPage() {
     router.push('/friends')
   }
 
+  const setVisibility = async (value: 'public' | 'private') => {
+    setGroup((g) => (g ? { ...g, visibility: value } : g))
+    await supabase.from('groups').update({ visibility: value }).eq('id', groupId)
+  }
+
   const invite = async () => {
     const handle = inviteHandle.trim().toLowerCase().replace(/^@/, '')
     if (!handle) return
@@ -249,6 +255,26 @@ export default function GroupPage() {
 
         {!loading && group && (
           <>
+            {/* Visibilidad (solo admin) */}
+            {isAdmin && (
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Visibilidad"
+                value={group.visibility ?? 'private'}
+                onChange={(e) => setVisibility(e.target.value as 'public' | 'private')}
+                helperText={
+                  (group.visibility ?? 'private') === 'public'
+                    ? 'Pública: aparece en el buscador, cualquiera puede unirse.'
+                    : 'Privada: solo por invitación.'
+                }
+              >
+                <MenuItem value="private">🔒 Privada</MenuItem>
+                <MenuItem value="public">🌐 Pública</MenuItem>
+              </TextField>
+            )}
+
             {/* Eventos */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

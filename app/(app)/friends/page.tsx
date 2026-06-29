@@ -67,7 +67,11 @@ export default function FriendsPage() {
   // Crear grupo
   const [createOpen, setCreateOpen] = useState(false)
   const [groupName, setGroupName] = useState('')
+  const [groupVisibility, setGroupVisibility] = useState<'public' | 'private'>('private')
   const [creating, setCreating] = useState(false)
+
+  // Resultados de búsqueda de comunidades públicas
+  const [groupResults, setGroupResults] = useState<{ id: string; name: string; visibility: string; member: boolean }[]>([])
 
   // Check-in
   const [checkinOpen, setCheckinOpen] = useState(false)
@@ -219,7 +223,7 @@ export default function FriendsPage() {
     setCreating(true)
     const { data: group } = await supabase
       .from('groups')
-      .insert({ name: groupName.trim(), owner_id: userId })
+      .insert({ name: groupName.trim(), owner_id: userId, visibility: groupVisibility })
       .select()
       .single()
     if (group) {
@@ -227,6 +231,18 @@ export default function FriendsPage() {
       router.push(`/groups/${group.id}`)
     }
     setCreating(false)
+  }
+
+  const joinGroup = async (groupId: string) => {
+    if (!userId) return
+    const { error } = await supabase.from('group_members').insert({ group_id: groupId, user_id: userId, role: 'member' })
+    if (!error) {
+      setGroupResults((prev) => prev.map((g) => (g.id === groupId ? { ...g, member: true } : g)))
+      setSnack('¡Te uniste a la comunidad!')
+      load()
+    } else {
+      setSnack('No se pudo unir (¿ya sos miembro?)')
+    }
   }
 
   const saveCheckin = async () => {
@@ -329,10 +345,26 @@ export default function FriendsPage() {
   }
 
   const search = async () => {
-    const handle = q.trim().toLowerCase().replace(/^@/, '')
+    const term = q.trim().replace(/^@/, '')
+    const handle = term.toLowerCase()
     if (!handle) return
     setLoading(true)
     setSearched(true)
+
+    // Comunidades públicas que matchean por nombre.
+    const myIds = new Set(groups.map((g) => g.id))
+    const { data: pubGroups } = await supabase
+      .from('groups')
+      .select('id, name, visibility')
+      .eq('visibility', 'public')
+      .ilike('name', `%${term}%`)
+      .limit(10)
+    setGroupResults(
+      ((pubGroups as { id: string; name: string; visibility: string }[]) || []).map((g) => ({
+        ...g,
+        member: myIds.has(g.id),
+      }))
+    )
 
     const { data: profiles } = await supabase
       .from('profiles')
@@ -508,13 +540,12 @@ export default function FriendsPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && search()}
-          placeholder="usuario"
+          placeholder="usuario o comunidad"
           slotProps={{
             input: {
               startAdornment: (
                 <InputAdornment position="start">
                   <SearchIcon sx={{ color: 'text.secondary' }} />
-                  <span style={{ color: '#888', marginLeft: 4 }}>@</span>
                 </InputAdornment>
               ),
             },
@@ -523,15 +554,52 @@ export default function FriendsPage() {
 
         {loading && <Typography color="text.secondary">Buscando...</Typography>}
 
-        {!loading && searched && results.length === 0 && (
+        {!loading && searched && results.length === 0 && groupResults.length === 0 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, pt: 6, textAlign: 'center' }}>
             <GroupIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
             <Typography color="text.secondary">
-              No encontramos rutinas públicas para ese usuario.
+              No encontramos usuarios ni comunidades para esa búsqueda.
             </Typography>
           </Box>
         )}
 
+        {/* Comunidades públicas encontradas */}
+        {!loading && groupResults.length > 0 && (
+          <>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
+              Comunidades
+            </Typography>
+            {groupResults.map((g) => (
+              <Card key={g.id} sx={{ borderLeft: '3px solid', borderColor: 'primary.main' }}>
+                <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
+                  <GroupIcon sx={{ color: 'primary.main' }} />
+                  <Box sx={{ flex: 1, cursor: 'pointer' }} onClick={() => router.push(`/groups/${g.id}`)}>
+                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                      {g.name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Comunidad pública
+                    </Typography>
+                  </Box>
+                  {g.member ? (
+                    <Chip label="Miembro" size="small" color="primary" />
+                  ) : (
+                    <Button size="small" variant="outlined" onClick={() => joinGroup(g.id)}>
+                      Unirme
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </>
+        )}
+
+        {/* Rutinas públicas de usuarios */}
+        {!loading && results.length > 0 && (
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, mt: 1 }}>
+            Rutinas de usuarios
+          </Typography>
+        )}
         {!loading &&
           results.map((r) => (
             <Card key={r.id}>
@@ -583,7 +651,7 @@ export default function FriendsPage() {
       {/* Crear grupo */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Nuevo grupo</DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
             autoFocus
             fullWidth
@@ -593,6 +661,21 @@ export default function FriendsPage() {
             sx={{ mt: 1 }}
             onKeyDown={(e) => e.key === 'Enter' && createGroup()}
           />
+          <TextField
+            select
+            fullWidth
+            label="Visibilidad"
+            value={groupVisibility}
+            onChange={(e) => setGroupVisibility(e.target.value as 'public' | 'private')}
+            helperText={
+              groupVisibility === 'public'
+                ? 'Aparece en el buscador, cualquiera puede unirse.'
+                : 'Solo accesible por invitación, no aparece en búsquedas.'
+            }
+          >
+            <MenuItem value="private">🔒 Privada</MenuItem>
+            <MenuItem value="public">🌐 Pública</MenuItem>
+          </TextField>
         </DialogContent>
         <DialogActions>
           <Button color="inherit" onClick={() => setCreateOpen(false)}>
