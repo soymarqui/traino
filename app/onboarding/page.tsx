@@ -101,7 +101,7 @@ export default function OnboardingPage() {
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', px: 3 }}>
       <Box sx={{ width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
-          Traino
+          TRAINO
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Avatar src={avatar || undefined} sx={{ width: 56, height: 56, bgcolor: 'primary.main', color: '#0A0A0A', fontWeight: 700 }}>

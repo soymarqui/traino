@@ -134,11 +134,19 @@ export default function AppLayout({
             <MenuIcon />
           </IconButton>
           <Typography
-            variant="h6"
             onClick={() => router.push('/dashboard')}
-            sx={{ fontWeight: 700, color: 'primary.main', flex: 1, cursor: 'pointer' }}
+            sx={{
+              fontFamily: 'var(--font-display), var(--font-instrument), sans-serif',
+              fontWeight: 900,
+              fontStretch: '125%',
+              letterSpacing: '0.04em',
+              fontSize: '1.15rem',
+              color: 'primary.main',
+              flex: 1,
+              cursor: 'pointer',
+            }}
           >
-            Traino
+            TRAINO
           </Typography>
           <IconButton onClick={() => router.push('/search')} sx={{ color: 'text.primary' }} aria-label="buscar">
             <SearchIcon />
@@ -169,8 +177,8 @@ export default function AppLayout({
       {/* Menú lateral */}
       <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
         <Box sx={{ width: 260, pt: 2 }} role="presentation">
-          <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main', px: 2 }}>
-            Traino
+          <Typography sx={{ fontFamily: 'var(--font-display), sans-serif', fontWeight: 900, fontStretch: '125%', letterSpacing: '0.04em', fontSize: '1.15rem', color: 'primary.main', px: 2 }}>
+            TRAINO
           </Typography>
           {user?.email && (
             <Typography

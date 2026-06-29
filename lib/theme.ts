@@ -62,12 +62,12 @@ export function makeTheme(mode: ColorMode) {
     },
     typography: {
       fontFamily: 'var(--font-instrument), "Inter", "Helvetica", sans-serif',
-      // Títulos pesados y con tracking levemente amplio (look "black & wide").
-      h1: { fontWeight: 800, letterSpacing: '0.01em' },
-      h2: { fontWeight: 800, letterSpacing: '0.01em' },
-      h3: { fontWeight: 800, letterSpacing: '0.01em' },
-      h4: { fontWeight: 800, letterSpacing: '0.01em' },
-      h5: { fontWeight: 800, letterSpacing: '0.01em' },
+      // Títulos con la fuente display (Archivo): black + expandida.
+      h1: { fontFamily: 'var(--font-display), var(--font-instrument), sans-serif', fontWeight: 900, fontStretch: '110%', letterSpacing: '0.005em' },
+      h2: { fontFamily: 'var(--font-display), var(--font-instrument), sans-serif', fontWeight: 900, fontStretch: '110%', letterSpacing: '0.005em' },
+      h3: { fontFamily: 'var(--font-display), var(--font-instrument), sans-serif', fontWeight: 900, fontStretch: '110%', letterSpacing: '0.005em' },
+      h4: { fontFamily: 'var(--font-display), var(--font-instrument), sans-serif', fontWeight: 900, fontStretch: '110%', letterSpacing: '0.005em' },
+      h5: { fontFamily: 'var(--font-display), var(--font-instrument), sans-serif', fontWeight: 900, fontStretch: '110%', letterSpacing: '0.005em' },
       h6: { fontWeight: 700, letterSpacing: '0.01em' },
     },
     shape: {

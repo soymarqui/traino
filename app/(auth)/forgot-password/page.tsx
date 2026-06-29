@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
     >
       <Box sx={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
-          Traino
+          TRAINO
         </Typography>
 
         {sent ? (
