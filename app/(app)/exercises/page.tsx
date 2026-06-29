@@ -11,6 +11,7 @@ import IconButton from '@mui/material/IconButton'
 import Snackbar from '@mui/material/Snackbar'
 import AddIcon from '@mui/icons-material/Add'
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
 import { createClient } from '@/lib/supabase/client'
 import { isAdmin } from '@/lib/admin'
@@ -237,6 +238,7 @@ export default function ExercisesPage() {
                 >
                   <PlaylistAddIcon />
                 </IconButton>
+                <ChevronRightIcon sx={{ color: 'text.secondary' }} />
               </CardContent>
             </Card>
           </SwipeableRow>
