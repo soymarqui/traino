@@ -1,455 +1,103 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
-import Button from '@mui/material/Button'
-import Chip from '@mui/material/Chip'
-import TextField from '@mui/material/TextField'
-import MenuItem from '@mui/material/MenuItem'
-import Avatar from '@mui/material/Avatar'
-import Alert from '@mui/material/Alert'
+import ToggleButton from '@mui/material/ToggleButton'
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Snackbar from '@mui/material/Snackbar'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Switch from '@mui/material/Switch'
-import Dialog from '@mui/material/Dialog'
-import DialogTitle from '@mui/material/DialogTitle'
-import DialogContent from '@mui/material/DialogContent'
-import DialogActions from '@mui/material/DialogActions'
-import LogoutIcon from '@mui/icons-material/Logout'
 import { createClient } from '@/lib/supabase/client'
-import { isAdmin } from '@/lib/admin'
-import { useRouter } from 'next/navigation'
-
-const GOALS = [
-  { value: 'bajar_peso', label: 'Bajar de peso' },
-  { value: 'ganar_musculo', label: 'Ganar masa muscular' },
-  { value: 'mantenerse', label: 'Mantenerse' },
-  { value: 'rendimiento', label: 'Mejorar rendimiento deportivo' },
-  { value: 'otro', label: 'Otro' },
-]
-
-const GENDERS = [
-  { value: 'masculino', label: 'Masculino' },
-  { value: 'femenino', label: 'Femenino' },
-  { value: 'no_binarie', label: 'No binarie' },
-]
-
-const IDENTITIES = [
-  { value: 'gymbro', label: 'GymBro' },
-  { value: 'gymsis', label: 'GymSis' },
-  { value: 'gympal', label: 'GymPal' },
-]
 
 export default function SettingsPage() {
-  const [email, setEmail] = useState('')
-  const [admin, setAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [timerEnabled, setTimerEnabled] = useState(true)
+  const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg')
   const [saved, setSaved] = useState(false)
-  const [signingOut, setSigningOut] = useState(false)
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [userId, setUserId] = useState<string | null>(null)
-  const [avatar, setAvatar] = useState('')
-  const [uploading, setUploading] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [error, setError] = useState('')
-  const [form, setForm] = useState({
-    name: '',
-    handle: '',
-    age: '',
-    height: '',
-    weight: '',
-    goal: '',
-    gender: '',
-    identity: '',
-    observations: '',
-    bio: '',
-    timer_enabled: true,
-  })
-  const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      setEmail(user?.email || '')
-      setAdmin(isAdmin(user?.email))
-      setUserId(user?.id ?? null)
       const m = user?.user_metadata ?? {}
-      setAvatar(m.avatar_url ?? '')
-
-      let handle = ''
-      let bio = ''
-      let identity = ''
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('handle, bio, identity')
-          .eq('id', user.id)
-          .maybeSingle()
-        handle = profile?.handle ?? ''
-        bio = profile?.bio ?? ''
-        identity = profile?.identity ?? ''
-      }
-
-      setForm({
-        name: m.full_name ?? '',
-        handle,
-        age: m.age != null ? String(m.age) : '',
-        height: m.height_cm != null ? String(m.height_cm) : '',
-        weight: m.weight_kg != null ? String(m.weight_kg) : '',
-        goal: m.goal ?? '',
-        gender: m.gender ?? '',
-        identity,
-        observations: m.observations ?? '',
-        bio,
-        timer_enabled: m.timer_enabled !== false,
-      })
+      setTimerEnabled(m.timer_enabled !== false)
+      setWeightUnit(m.weight_unit === 'lbs' ? 'lbs' : 'kg')
       setLoading(false)
     }
     load()
   }, [])
 
-  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !userId) return
-    setUploading(true)
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
-    const path = `${userId}/avatar.${ext}`
-    const { error } = await supabase.storage
-      .from('avatars')
-      .upload(path, file, { upsert: true })
-    if (!error) {
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-      const url = `${data.publicUrl}?t=${Date.now()}`
-      await supabase.auth.updateUser({ data: { avatar_url: url } })
-      await supabase.from('profiles').upsert({ id: userId, avatar_url: url })
-      setAvatar(url)
-      setSaved(true)
-    }
-    setUploading(false)
-  }
-
-  const initial = (form.name || email || '?').trim()[0]?.toUpperCase() ?? '?'
-
-  const set = (field: keyof typeof form, value: string) =>
-    setForm((prev) => ({ ...prev, [field]: value }))
-
-  const num = (v: string) => (v.trim() === '' ? null : Number(v))
-
-  const handleSave = async () => {
-    setError('')
-    const cleanHandle = form.handle.trim().toLowerCase()
-    if (!/^[a-z0-9_]{3,20}$/.test(cleanHandle)) {
-      setError('El usuario debe tener 3-20 caracteres: letras, números o _ (sin espacios).')
-      return
-    }
-    setSaving(true)
-
-    // ¿Handle disponible? (excluyendo el propio)
-    const { data: taken } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('handle', cleanHandle)
-      .neq('id', userId ?? '')
-      .maybeSingle()
-    if (taken) {
-      setError('Ese nombre de usuario ya está en uso.')
-      setSaving(false)
-      return
-    }
-
-    await supabase.auth.updateUser({
-      data: {
-        full_name: form.name.trim(),
-        age: num(form.age),
-        height_cm: num(form.height),
-        weight_kg: num(form.weight),
-        goal: form.goal || null,
-        gender: form.gender || null,
-        observations: form.observations.trim() || null,
-        timer_enabled: form.timer_enabled,
-      },
-    })
-
-    const { error: profErr } = await supabase
-      .from('profiles')
-      .upsert({
-        id: userId,
-        handle: cleanHandle,
-        display_name: form.name.trim(),
-        avatar_url: avatar || null,
-        bio: form.bio.trim() || null,
-        identity: form.identity || null,
-      })
-
-    setSaving(false)
-    if (profErr) {
-      setError('No se pudo guardar el perfil. Intentá de nuevo.')
-      return
-    }
+  const saveTimer = async (value: boolean) => {
+    setTimerEnabled(value)
+    await supabase.auth.updateUser({ data: { timer_enabled: value } })
     setSaved(true)
   }
 
-  const handleSignOut = async () => {
-    setSigningOut(true)
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
-
-  const handleDeleteAccount = async () => {
-    setDeleting(true)
-    const res = await fetch('/api/delete-account', { method: 'POST' })
-    if (res.ok) {
-      await supabase.auth.signOut()
-      router.push('/login')
-    } else {
-      setDeleting(false)
-      setDeleteOpen(false)
-      setError('No se pudo borrar la cuenta. Intentá de nuevo.')
-    }
+  const saveUnit = async (value: 'kg' | 'lbs') => {
+    if (!value) return
+    setWeightUnit(value)
+    await supabase.auth.updateUser({ data: { weight_unit: value } })
+    setSaved(true)
   }
 
   return (
     <Box sx={{ minHeight: '100vh', pb: 12 }}>
-      {/* Header */}
       <Box sx={{ px: 3, pt: 4, pb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
-          Configuración
+          Ajustes
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Preferencias de la app.
         </Typography>
       </Box>
 
-      <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={handlePhoto}
-        />
+      <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
         <Card>
-          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Avatar
-              src={avatar || undefined}
-              onClick={() => fileRef.current?.click()}
-              sx={{
-                width: 64,
-                height: 64,
-                cursor: 'pointer',
-                bgcolor: 'primary.main',
-                color: '#0A0A0A',
-                fontWeight: 700,
-                fontSize: '1.5rem',
-              }}
-            >
-              {initial}
-            </Avatar>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography
-                variant="body1"
-                sx={{ fontWeight: 600, wordBreak: 'break-all' }}
-              >
-                {loading ? 'Cargando...' : email || 'Sin sesión'}
-              </Typography>
-              {admin && (
-                <Chip label="Admin" size="small" color="primary" sx={{ mt: 0.5 }} />
-              )}
-              <Box>
-                <Button
-                  size="small"
-                  onClick={() => fileRef.current?.click()}
-                  disabled={uploading}
-                  sx={{ mt: 0.5, ml: -0.5 }}
-                >
-                  {uploading ? 'Subiendo...' : 'Cambiar foto'}
-                </Button>
-              </Box>
-            </Box>
+          <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              Timer de descanso
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Countdown automático entre series.
+            </Typography>
+            <FormControlLabel
+              control={<Switch checked={timerEnabled} onChange={(e) => saveTimer(e.target.checked)} disabled={loading} />}
+              label={timerEnabled ? 'Activado' : 'Desactivado'}
+              sx={{ mt: 0.5 }}
+            />
           </CardContent>
         </Card>
 
-        {/* Datos del perfil */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}
-          >
-            Mi perfil
-          </Typography>
-
-          {error && <Alert severity="error">{error}</Alert>}
-
-          <TextField
-            label="Nombre"
-            value={form.name}
-            onChange={(e) => set('name', e.target.value)}
-            fullWidth
-            placeholder="¿Cómo querés que te llamemos?"
-          />
-
-          <TextField
-            label="Nombre de usuario"
-            value={form.handle}
-            onChange={(e) => set('handle', e.target.value)}
-            fullWidth
-            placeholder="marcos_fit"
-            helperText="Tu @ para compartir rutinas"
-            slotProps={{ input: { startAdornment: <span style={{ color: '#888', marginRight: 2 }}>@</span> } }}
-          />
-
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextField
-              label="Edad"
-              type="number"
-              value={form.age}
-              onChange={(e) => set('age', e.target.value)}
-              fullWidth
-            />
-            <TextField
-              label="Altura (cm)"
-              type="number"
-              value={form.height}
-              onChange={(e) => set('height', e.target.value)}
-              fullWidth
-            />
-            <TextField
-              label="Peso (kg)"
-              type="number"
-              value={form.weight}
-              onChange={(e) => set('weight', e.target.value)}
-              fullWidth
-            />
-          </Box>
-
-          <TextField
-            label="Objetivo de entrenamiento"
-            value={form.goal}
-            onChange={(e) => set('goal', e.target.value)}
-            fullWidth
-            select
-          >
-            <MenuItem value="">Sin especificar</MenuItem>
-            {GOALS.map((g) => (
-              <MenuItem key={g.value} value={g.value}>
-                {g.label}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            label="Género"
-            value={form.gender}
-            onChange={(e) => set('gender', e.target.value)}
-            fullWidth
-            select
-          >
-            <MenuItem value="">Prefiero no decir</MenuItem>
-            {GENDERS.map((g) => (
-              <MenuItem key={g.value} value={g.value}>
-                {g.label}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            label="Identidad"
-            value={form.identity}
-            onChange={(e) => set('identity', e.target.value)}
-            fullWidth
-            select
-            helperText="Cómo te ven en la comunidad"
-          >
-            <MenuItem value="">Sin especificar</MenuItem>
-            {IDENTITIES.map((g) => (
-              <MenuItem key={g.value} value={g.value}>
-                {g.label}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            label="Observaciones personales"
-            value={form.observations}
-            onChange={(e) => set('observations', e.target.value)}
-            fullWidth
-            multiline
-            rows={2}
-            placeholder="Lesiones, restricciones, aclaraciones (ej: hombro derecho operado)"
-            helperText="Privado. Lo usamos para avisarte si un ejercicio puede no ser apto para vos."
-          />
-
-          <TextField
-            label="Bio"
-            value={form.bio}
-            onChange={(e) => set('bio', e.target.value)}
-            fullWidth
-            multiline
-            rows={2}
-            placeholder="Contá algo sobre vos"
-            helperText="Pública (para la sección de comunidad)."
-          />
-
-          <FormControlLabel
-            control={
-              <Switch
-                checked={form.timer_enabled}
-                onChange={(e) => setForm((prev) => ({ ...prev, timer_enabled: e.target.checked }))}
-              />
-            }
-            label="Timer (countdown de descanso entre series)"
-          />
-
-          <Button variant="contained" onClick={handleSave} disabled={saving || loading}>
-            {saving ? 'Guardando...' : 'Guardar perfil'}
-          </Button>
-        </Box>
-
-        <Button
-          variant="outlined"
-          color="inherit"
-          size="large"
-          fullWidth
-          startIcon={<LogoutIcon />}
-          onClick={handleSignOut}
-          disabled={signingOut}
-        >
-          {signingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
-        </Button>
-
-        <Button color="error" fullWidth onClick={() => setDeleteOpen(true)} sx={{ mt: 1 }}>
-          Borrar cuenta
-        </Button>
+        <Card>
+          <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              Unidad de peso
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Cómo se muestran los pesos en la app.
+            </Typography>
+            <ToggleButtonGroup
+              value={weightUnit}
+              exclusive
+              onChange={(_, v) => saveUnit(v)}
+              disabled={loading}
+              sx={{ mt: 0.5 }}
+            >
+              <ToggleButton value="kg" sx={{ px: 3 }}>KG</ToggleButton>
+              <ToggleButton value="lbs" sx={{ px: 3 }}>LBS</ToggleButton>
+            </ToggleButtonGroup>
+          </CardContent>
+        </Card>
       </Box>
-
-      {/* Confirmar borrar cuenta */}
-      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Borrar cuenta</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary">
-            Esto es <b>irreversible</b>: se eliminan tu cuenta y todos tus datos
-            (rutinas, entrenamientos, fotos, etc.). ¿Seguro?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button color="inherit" onClick={() => setDeleteOpen(false)}>
-            Cancelar
-          </Button>
-          <Button color="error" onClick={handleDeleteAccount} disabled={deleting}>
-            {deleting ? 'Borrando...' : 'Borrar definitivamente'}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <Snackbar
         open={saved}
-        autoHideDuration={2500}
+        autoHideDuration={2000}
         onClose={() => setSaved(false)}
-        message="Perfil actualizado"
+        message="Ajustes guardados"
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         sx={{ mb: 8 }}
       />
