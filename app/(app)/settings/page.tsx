@@ -11,12 +11,14 @@ import Snackbar from '@mui/material/Snackbar'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Switch from '@mui/material/Switch'
 import { createClient } from '@/lib/supabase/client'
+import { useColorMode } from '@/components/ThemeRegistry'
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [timerEnabled, setTimerEnabled] = useState(true)
   const [weightUnit, setWeightUnit] = useState<'kg' | 'lbs'>('kg')
   const [saved, setSaved] = useState(false)
+  const { mode, setMode } = useColorMode()
   const supabase = createClient()
 
   useEffect(() => {
@@ -55,6 +57,31 @@ export default function SettingsPage() {
       </Box>
 
       <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Card>
+          <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              Tema
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Elegí el aspecto de la app. No sigue el modo del sistema.
+            </Typography>
+            <ToggleButtonGroup
+              value={mode}
+              exclusive
+              onChange={(_, v) => {
+                if (v) {
+                  setMode(v)
+                  setSaved(true)
+                }
+              }}
+              sx={{ mt: 0.5 }}
+            >
+              <ToggleButton value="dark" sx={{ px: 3 }}>🌙 Dark</ToggleButton>
+              <ToggleButton value="light" sx={{ px: 3 }}>☀️ Light</ToggleButton>
+            </ToggleButtonGroup>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <Typography variant="body1" sx={{ fontWeight: 600 }}>
