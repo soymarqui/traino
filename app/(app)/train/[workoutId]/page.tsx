@@ -31,6 +31,8 @@ import AddAPhotoIcon from '@mui/icons-material/AddAPhoto'
 import CloseIcon from '@mui/icons-material/Close'
 import DeleteIcon from '@mui/icons-material/Delete'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
+import ShareIcon from '@mui/icons-material/Share'
+import Autocomplete from '@mui/material/Autocomplete'
 import { equipmentLabel } from '@/lib/equipment'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useParams } from 'next/navigation'
@@ -133,9 +135,13 @@ export default function WorkoutPage() {
   >({})
   const [routineReId, setRoutineReId] = useState<Record<string, string>>({})
   const [groups, setGroups] = useState<{ id: string; name: string }[]>([])
-  const [shareOpen, setShareOpen] = useState(false)
-  const [shareSel, setShareSel] = useState<string[]>([])
-  const [shared, setShared] = useState(false)
+  const [ciMessage, setCiMessage] = useState('')
+  const [tagged, setTagged] = useState<{ id: string; handle: string; display_name: string | null }[]>([])
+  const [taggable, setTaggable] = useState<{ id: string; handle: string; display_name: string | null }[]>([])
+  const [showToGroups, setShowToGroups] = useState(false)
+  const [groupSel, setGroupSel] = useState<string[]>([])
+  const [publishing, setPublishing] = useState(false)
+  const [published, setPublished] = useState(false)
   const [alreadyFinished, setAlreadyFinished] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [marking, setMarking] = useState<{ set: SetRow; exName: string; unitLabel: string; unit: string; distanceUnit: string | null } | null>(null)
@@ -177,6 +183,23 @@ export default function WorkoutPage() {
     setAlreadyFinished(!!w?.finished_at)
 
     supabase.from('groups').select('id, name').then(({ data }) => setGroups(data || []))
+
+    // Amigos (para etiquetar en el check-in).
+    if (user) {
+      supabase
+        .from('friendships')
+        .select('requester_id, addressee_id, status')
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+        .eq('status', 'accepted')
+        .then(async ({ data: fr }) => {
+          const ids = (fr || []).map((f: { requester_id: string; addressee_id: string }) =>
+            f.requester_id === user.id ? f.addressee_id : f.requester_id
+          )
+          if (!ids.length) return
+          const { data: profs } = await supabase.from('profiles').select('id, handle, display_name').in('id', ids)
+          setTaggable((profs as { id: string; handle: string; display_name: string | null }[]) || [])
+        })
+    }
 
     // Referencia de la rutina activa (para "Actualizar en rutina").
     if (user) {
@@ -639,19 +662,37 @@ export default function WorkoutPage() {
     }
   }
 
-  const shareToGroups = async () => {
-    const summaryText = `${exercises.length} ejercicios · ${completedSets} series`
-    for (const gid of shareSel) {
-      await supabase.from('group_posts').insert({
-        group_id: gid,
-        user_id: userId,
-        workout_id: workoutId,
-        summary: summaryText,
-        photo_url: photoUrl || null,
-      })
-    }
-    setShareOpen(false)
-    setShared(true)
+  // Volumen por músculo de esta sesión (para el mini gráfico del resumen).
+  const muscleVolume = () => {
+    const map: Record<string, number> = {}
+    exercises.forEach((e) => {
+      const vol = e.sets.reduce((b, s) => b + (s.completed ? (s.weight ?? 0) * (s.reps_actual ?? s.reps_target ?? 0) : 0), 0)
+      if (vol <= 0) return
+      const name = e.muscle?.name ?? 'Otro'
+      map[name] = (map[name] ?? 0) + vol
+    })
+    return Object.entries(map)
+      .map(([name, value]) => ({ name, value: Math.round(value) }))
+      .sort((a, b) => b.value - a.value)
+  }
+
+  const publishCheckin = async () => {
+    if (!userId) return
+    setPublishing(true)
+    const parts: string[] = []
+    if (ciMessage.trim()) parts.push(ciMessage.trim())
+    if (tagged.length) parts.push('con ' + tagged.map((t) => `@${t.handle}`).join(' '))
+    const summary = parts.join(' · ') || `${exercises.length} ejercicios · ${completedSets} series`
+
+    const base = { user_id: userId, workout_id: workoutId, summary, photo_url: photoUrl || null }
+    // Siempre al feed (check-in personal, visible para amigos) + opcionalmente a grupos elegidos.
+    const rows: Record<string, unknown>[] = [{ ...base, group_id: null }]
+    if (showToGroups) groupSel.forEach((gid) => rows.push({ ...base, group_id: gid }))
+    await supabase.from('group_posts').insert(rows)
+
+    setPublishing(false)
+    setPublished(true)
+    router.push('/friends')
   }
 
   const handleDelete = async () => {
@@ -697,6 +738,24 @@ export default function WorkoutPage() {
           <StatBox value={`${volume}`} label="kg volumen" />
         </Box>
 
+        {/* Volumen por músculo */}
+        {muscleVolume().length > 0 && (
+          <Box sx={{ width: '100%', maxWidth: 360, mt: 1, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+            {muscleVolume().slice(0, 5).map((m) => {
+              const max = muscleVolume()[0].value || 1
+              return (
+                <Box key={m.name} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="caption" sx={{ width: 90, textAlign: 'left', flexShrink: 0 }}>{m.name}</Typography>
+                  <Box sx={{ flex: 1, bgcolor: 'action.hover', borderRadius: 1, height: 14, overflow: 'hidden' }}>
+                    <Box sx={{ width: `${(m.value / max) * 100}%`, bgcolor: 'primary.main', height: '100%', borderRadius: 1 }} />
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ width: 56, textAlign: 'right' }}>{m.value} kg</Typography>
+                </Box>
+              )
+            })}
+          </Box>
+        )}
+
         {photoUrl && (
           <Box
             component="img"
@@ -706,77 +765,91 @@ export default function WorkoutPage() {
           />
         )}
 
-        <Button
-          variant="outlined"
-          color="inherit"
-          startIcon={<AddAPhotoIcon />}
-          onClick={() => photoRef.current?.click()}
-          disabled={uploadingPhoto}
-          sx={{ mt: 1 }}
-        >
-          {uploadingPhoto ? 'Subiendo...' : photoUrl ? 'Cambiar foto' : 'Agregar foto'}
-        </Button>
-
-        <Button
-          variant="contained"
-          color="primary"
+        {/* Mensaje + etiquetar */}
+        <TextField
           fullWidth
-          onClick={shareImage}
-          sx={{ mt: 1 }}
-        >
-          Compartir imagen
-        </Button>
+          multiline
+          rows={2}
+          value={ciMessage}
+          onChange={(e) => setCiMessage(e.target.value)}
+          placeholder="Agregá un mensaje a tu check-in..."
+          sx={{ maxWidth: 360, mt: 1 }}
+        />
+        <Autocomplete
+          multiple
+          fullWidth
+          options={taggable}
+          value={tagged}
+          onChange={(_, v) => setTagged(v)}
+          getOptionLabel={(o) => (o.handle ? `@${o.handle}` : o.display_name ?? 'usuario')}
+          isOptionEqualToValue={(o, v) => o.id === v.id}
+          renderInput={(params) => <TextField {...params} placeholder="Etiquetar amigos" />}
+          sx={{ maxWidth: 360 }}
+        />
 
+        {/* Mostrar a mis grupos */}
         {groups.length > 0 && (
-          <Button
-            variant="outlined"
-            color="inherit"
-            fullWidth
-            onClick={() => setShareOpen(true)}
-            disabled={shared}
-          >
-            {shared ? 'Compartido ✓' : 'Compartir a un grupo'}
-          </Button>
+          <Box sx={{ width: '100%', maxWidth: 360 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={showToGroups}
+                  onChange={(e) => {
+                    setShowToGroups(e.target.checked)
+                    if (e.target.checked) setGroupSel(groups.map((g) => g.id))
+                  }}
+                />
+              }
+              label="Mostrar a mis grupos"
+            />
+            {showToGroups && (
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                {groups.map((g) => {
+                  const on = groupSel.includes(g.id)
+                  return (
+                    <Chip
+                      key={g.id}
+                      label={g.name}
+                      color={on ? 'primary' : 'default'}
+                      variant={on ? 'filled' : 'outlined'}
+                      onDelete={on ? () => setGroupSel((prev) => prev.filter((x) => x !== g.id)) : undefined}
+                      onClick={!on ? () => setGroupSel((prev) => [...prev, g.id]) : undefined}
+                    />
+                  )
+                })}
+              </Box>
+            )}
+          </Box>
         )}
 
-        <Button variant="contained" size="large" fullWidth onClick={() => router.push('/history')} sx={{ mt: 2 }}>
-          Ver historial
+        {/* Acción principal: publicar check-in */}
+        <Button
+          variant="contained"
+          size="large"
+          fullWidth
+          onClick={publishCheckin}
+          disabled={publishing || published}
+          sx={{ mt: 1, maxWidth: 360 }}
+        >
+          {publishing ? 'Publicando...' : published ? 'Publicado ✓' : 'Publicar Check-in'}
         </Button>
 
-        {/* Compartir a grupos */}
-        <Dialog open={shareOpen} onClose={() => setShareOpen(false)} fullWidth maxWidth="xs">
-          <DialogTitle>Compartir entrenamiento</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Elegí a qué grupos enviarlo:
-            </Typography>
-            {groups.map((g) => (
-              <FormControlLabel
-                key={g.id}
-                control={
-                  <Checkbox
-                    checked={shareSel.includes(g.id)}
-                    onChange={() =>
-                      setShareSel((prev) =>
-                        prev.includes(g.id) ? prev.filter((x) => x !== g.id) : [...prev, g.id]
-                      )
-                    }
-                  />
-                }
-                label={g.name}
-                sx={{ display: 'flex' }}
-              />
-            ))}
-          </DialogContent>
-          <DialogActions>
-            <Button color="inherit" onClick={() => setShareOpen(false)}>
-              Cancelar
-            </Button>
-            <Button variant="contained" onClick={shareToGroups} disabled={shareSel.length === 0}>
-              Compartir
-            </Button>
-          </DialogActions>
-        </Dialog>
+        {/* Secundario: imagen para compartir (ej. Instagram) + foto */}
+        <Box sx={{ display: 'flex', gap: 1, width: '100%', maxWidth: 360 }}>
+          <Button
+            variant="text"
+            color="inherit"
+            startIcon={<AddAPhotoIcon />}
+            onClick={() => photoRef.current?.click()}
+            disabled={uploadingPhoto}
+            sx={{ flex: 1 }}
+          >
+            {uploadingPhoto ? 'Subiendo...' : photoUrl ? 'Cambiar foto' : 'Foto'}
+          </Button>
+          <Button variant="text" color="inherit" startIcon={<ShareIcon />} onClick={shareImage} sx={{ flex: 1 }}>
+            Compartir imagen
+          </Button>
+        </Box>
       </Box>
     )
   }
