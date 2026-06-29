@@ -243,7 +243,6 @@ export default function AppLayout({
         <BottomNavigation
           value={activeBottom}
           onChange={(_, value) => router.push(value)}
-          showLabels
           sx={{
             bgcolor: 'transparent',
             height: 64,
