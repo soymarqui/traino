@@ -23,6 +23,7 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import InstagramIcon from '@mui/icons-material/Instagram'
 import VerifiedIcon from '@mui/icons-material/Verified'
 import { createClient } from '@/lib/supabase/client'
+import { duplicateRoutine } from '@/lib/routines'
 import RoutineCard from '@/components/RoutineCard'
 import { useRouter, useParams } from 'next/navigation'
 
@@ -196,6 +197,12 @@ export default function UserProfilePage() {
     if (!friendship) return
     await supabase.from('friendships').delete().eq('id', friendship.id)
     setFriendship(null)
+  }
+
+  const addRoutineToMine = async (routineId: string) => {
+    if (!meId) return
+    const newId = await duplicateRoutine(supabase, routineId, meId)
+    setSnack(newId ? 'Rutina agregada a Mis Rutinas (sin pesos)' : 'No se pudo agregar')
   }
 
   const addToGroup = async (groupId: string) => {
@@ -374,7 +381,9 @@ export default function UserProfilePage() {
                     description={r.description}
                     likes={routineLikes[r.id] ?? 0}
                     followers={routineFollowers[r.id] ?? 0}
+                    showChevron
                     onClick={() => router.push(`/r/${r.id}`)}
+                    onAdd={meId && profile.id !== meId ? () => addRoutineToMine(r.id) : undefined}
                   />
                 ))
               )

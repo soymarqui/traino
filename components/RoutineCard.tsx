@@ -2,7 +2,10 @@
 
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
+import Button from '@mui/material/Button'
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt'
+import ChevronRightIcon from '@mui/icons-material/ChevronRight'
+import AddIcon from '@mui/icons-material/Add'
 
 // Card de rutina con portada de fondo, título, descripción y contadores
 // (💪 likes + seguidores). Reutilizable en perfil y resultados.
@@ -15,6 +18,9 @@ export default function RoutineCard({
   followers = 0,
   byHandle,
   onClick,
+  showChevron = false,
+  onAdd,
+  addLabel = 'Agregar a Mis Rutinas',
 }: {
   name: string
   coverUrl?: string | null
@@ -24,6 +30,9 @@ export default function RoutineCard({
   followers?: number
   byHandle?: string | null
   onClick?: () => void
+  showChevron?: boolean
+  onAdd?: () => void
+  addLabel?: string
 }) {
   const hasCover = !!coverUrl
   return (
@@ -55,6 +64,11 @@ export default function RoutineCard({
             : 'transparent',
         }}
       />
+      {showChevron && (
+        <ChevronRightIcon
+          sx={{ position: 'absolute', top: 10, right: 10, color: hasCover ? 'rgba(255,255,255,0.9)' : 'text.secondary' }}
+        />
+      )}
       <Box sx={{ position: 'relative', p: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         <Typography variant="h6" sx={{ fontWeight: 700, color: hasCover ? '#fff' : 'text.primary' }}>
           {name}
@@ -88,6 +102,18 @@ export default function RoutineCard({
             </Box>
           </Box>
         </Box>
+
+        {onAdd && (
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={(e) => { e.stopPropagation(); onAdd() }}
+            sx={{ mt: 1, alignSelf: 'flex-start' }}
+          >
+            {addLabel}
+          </Button>
+        )}
       </Box>
     </Box>
   )
