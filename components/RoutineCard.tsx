@@ -2,7 +2,7 @@
 
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
-import Button from '@mui/material/Button'
+import IconButton from '@mui/material/IconButton'
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import AddIcon from '@mui/icons-material/Add'
@@ -22,6 +22,8 @@ export default function RoutineCard({
   showChevron = false,
   onAdd,
   addLabel = 'Agregar a Mis Rutinas',
+  liked = false,
+  onToggleLike,
 }: {
   name: string
   coverUrl?: string | null
@@ -34,6 +36,8 @@ export default function RoutineCard({
   showChevron?: boolean
   onAdd?: () => void
   addLabel?: string
+  liked?: boolean
+  onToggleLike?: () => void
 }) {
   const hasCover = !!coverUrl
   return (
@@ -87,11 +91,15 @@ export default function RoutineCard({
           </Typography>
         )}
 
-        <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', mt: 0.5 }}>
-          <Typography variant="body2" sx={{ color: hasCover ? 'rgba(255,255,255,0.75)' : 'text.secondary' }}>
+        {(exerciseCount != null || byHandle) && (
+          <Typography variant="caption" sx={{ color: hasCover ? 'rgba(255,255,255,0.7)' : 'text.hint' }}>
             {exerciseCount != null ? `${exerciseCount} ejercicios` : ''}
             {byHandle ? `${exerciseCount != null ? ' · ' : ''}por @${byHandle}` : ''}
           </Typography>
+        )}
+
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 0.5 }}>
+          {/* Izquierda: contadores */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: hasCover ? 'rgba(255,255,255,0.9)' : 'text.secondary' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
               <span style={{ fontSize: '0.95rem' }}>💪</span>
@@ -102,19 +110,33 @@ export default function RoutineCard({
               <Typography variant="body2" sx={{ fontWeight: 600 }}>{followers}</Typography>
             </Box>
           </Box>
-        </Box>
 
-        {onAdd && (
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<AddIcon />}
-            onClick={(e) => { e.stopPropagation(); onAdd() }}
-            sx={{ mt: 1, alignSelf: 'flex-start' }}
-          >
-            {addLabel}
-          </Button>
-        )}
+          {/* Derecha: acciones (like + agregar) */}
+          {(onToggleLike || onAdd) && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {onToggleLike && (
+                <IconButton
+                  size="small"
+                  aria-label="Me gusta"
+                  onClick={(e) => { e.stopPropagation(); onToggleLike() }}
+                  sx={{ color: hasCover ? '#fff' : 'text.secondary' }}
+                >
+                  <span style={{ fontSize: '1.15rem', opacity: liked ? 1 : 0.4, filter: liked ? 'none' : 'grayscale(1)' }}>💪</span>
+                </IconButton>
+              )}
+              {onAdd && (
+                <IconButton
+                  size="small"
+                  aria-label={addLabel}
+                  onClick={(e) => { e.stopPropagation(); onAdd() }}
+                  sx={{ bgcolor: 'primary.main', color: '#0A0A0A', '&:hover': { bgcolor: 'primary.dark' } }}
+                >
+                  <AddIcon fontSize="small" />
+                </IconButton>
+              )}
+            </Box>
+          )}
+        </Box>
       </Box>
     </Box>
   )

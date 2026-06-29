@@ -54,6 +54,7 @@ export default function UserProfilePage() {
   const [tab, setTab] = useState<'rutinas' | 'entrenamientos' | 'logros'>('rutinas')
   const [routines, setRoutines] = useState<{ id: string; name: string; description: string | null; cover_url: string | null }[]>([])
   const [routineLikes, setRoutineLikes] = useState<Record<string, number>>({})
+  const [routineLiked, setRoutineLiked] = useState<Record<string, boolean>>({})
   const [routineFollowers, setRoutineFollowers] = useState<Record<string, number>>({})
   const [checkins, setCheckins] = useState<{ id: string; group_id: string; summary: string | null; photo_url: string | null; created_at: string }[]>([])
   const [groupNames, setGroupNames] = useState<Record<string, string>>({})
@@ -109,14 +110,19 @@ export default function UserProfilePage() {
       const rids = routineList.map((r) => r.id)
       if (rids.length) {
         const [{ data: rl }, { data: rs }] = await Promise.all([
-          supabase.from('routine_likes').select('routine_id').in('routine_id', rids),
+          supabase.from('routine_likes').select('routine_id, user_id').in('routine_id', rids),
           supabase.from('routine_subscriptions').select('routine_id').in('routine_id', rids),
         ])
         const lMap: Record<string, number> = {}
-        ;(rl || []).forEach((x: { routine_id: string }) => (lMap[x.routine_id] = (lMap[x.routine_id] ?? 0) + 1))
+        const likedMap: Record<string, boolean> = {}
+        ;(rl || []).forEach((x: { routine_id: string; user_id: string }) => {
+          lMap[x.routine_id] = (lMap[x.routine_id] ?? 0) + 1
+          if (x.user_id === user?.id) likedMap[x.routine_id] = true
+        })
         const fMap: Record<string, number> = {}
         ;(rs || []).forEach((x: { routine_id: string }) => (fMap[x.routine_id] = (fMap[x.routine_id] ?? 0) + 1))
         setRoutineLikes(lMap)
+        setRoutineLiked(likedMap)
         setRoutineFollowers(fMap)
       }
 
@@ -203,6 +209,18 @@ export default function UserProfilePage() {
     if (!meId) return
     const newId = await duplicateRoutine(supabase, routineId, meId)
     setSnack(newId ? 'Rutina agregada a Mis Rutinas (sin pesos)' : 'No se pudo agregar')
+  }
+
+  const toggleRoutineLike = async (routineId: string) => {
+    if (!meId) return
+    const isLiked = !!routineLiked[routineId]
+    setRoutineLiked((prev) => ({ ...prev, [routineId]: !isLiked }))
+    setRoutineLikes((prev) => ({ ...prev, [routineId]: Math.max(0, (prev[routineId] ?? 0) + (isLiked ? -1 : 1)) }))
+    if (isLiked) {
+      await supabase.from('routine_likes').delete().eq('routine_id', routineId).eq('user_id', meId)
+    } else {
+      await supabase.from('routine_likes').upsert({ routine_id: routineId, user_id: meId }, { onConflict: 'routine_id,user_id' })
+    }
   }
 
   const addToGroup = async (groupId: string) => {
@@ -384,6 +402,8 @@ export default function UserProfilePage() {
                     showChevron
                     onClick={() => router.push(`/r/${r.id}`)}
                     onAdd={meId && profile.id !== meId ? () => addRoutineToMine(r.id) : undefined}
+                    liked={!!routineLiked[r.id]}
+                    onToggleLike={meId && profile.id !== meId ? () => toggleRoutineLike(r.id) : undefined}
                   />
                 ))
               )
