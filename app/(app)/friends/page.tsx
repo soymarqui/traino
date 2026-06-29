@@ -7,6 +7,9 @@ import Card from '@mui/material/Card'
 import CardActionArea from '@mui/material/CardActionArea'
 import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
+import Tabs from '@mui/material/Tabs'
+import Tab from '@mui/material/Tab'
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import TextField from '@mui/material/TextField'
 import MenuItem from '@mui/material/MenuItem'
 import Button from '@mui/material/Button'
@@ -57,6 +60,9 @@ export default function FriendsPage() {
   const [userId, setUserId] = useState<string | null>(null)
   const [groups, setGroups] = useState<GroupRow[]>([])
   const [feed, setFeed] = useState<FeedPost[]>([])
+  const [tab, setTab] = useState<'checkins' | 'grupos'>('checkins')
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+  const [groupFeed, setGroupFeed] = useState<FeedPost[]>([])
   const [likes, setLikes] = useState<Record<string, { count: number; mine: boolean }>>({})
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({})
   const [challenges, setChallenges] = useState<ChallengeRow[]>([])
@@ -98,6 +104,75 @@ export default function FriendsPage() {
     load()
   }, [])
 
+  // Carga un feed de check-ins (global o de un grupo) y fusiona autores/likes/comentarios.
+  const loadFeed = async (opts?: { userIds?: string[]; meId?: string | null }): Promise<FeedPost[]> => {
+    const me = opts?.meId ?? userId
+    let query = supabase
+      .from('group_posts')
+      .select('id, group_id, user_id, summary, photo_url, created_at, workout_id, workout:workouts(started_at, routine:routines(id, name))')
+      .order('created_at', { ascending: false })
+      .limit(80)
+    if (opts?.userIds) query = query.in('user_id', opts.userIds.length ? opts.userIds : ['00000000-0000-0000-0000-000000000000'])
+    const { data: posts } = await query
+    const list = ((posts as any[]) || []).map((p) => {
+      const w = Array.isArray(p.workout) ? p.workout[0] : p.workout
+      const r = w && (Array.isArray(w.routine) ? w.routine[0] : w.routine)
+      return { ...p, workoutDate: w?.started_at ?? null, routineName: r?.name ?? null, routineId: r?.id ?? null } as FeedPost
+    })
+
+    const uids = [...new Set(list.map((p) => p.user_id))]
+    if (uids.length) {
+      const { data: profs } = await supabase.from('profiles').select('id, handle, display_name, avatar_url').in('id', uids)
+      const h: Record<string, string | null> = {}
+      const a: Record<string, { handle: string | null; display_name: string | null; avatar_url: string | null }> = {}
+      ;(profs || []).forEach((p: any) => {
+        h[p.id] = p.handle
+        a[p.id] = { handle: p.handle, display_name: p.display_name, avatar_url: p.avatar_url }
+      })
+      setHandles((prev) => ({ ...prev, ...h }))
+      setAuthors((prev) => ({ ...prev, ...a }))
+    }
+
+    const postIds = list.map((p) => p.id)
+    if (postIds.length) {
+      const { data: pl } = await supabase.from('post_likes').select('post_id, user_id').in('post_id', postIds)
+      const lmap: Record<string, { count: number; mine: boolean }> = {}
+      postIds.forEach((id) => (lmap[id] = { count: 0, mine: false }))
+      ;(pl || []).forEach((l: { post_id: string; user_id: string }) => {
+        if (!lmap[l.post_id]) lmap[l.post_id] = { count: 0, mine: false }
+        lmap[l.post_id].count++
+        if (l.user_id === me) lmap[l.post_id].mine = true
+      })
+      setLikes((prev) => ({ ...prev, ...lmap }))
+
+      const { data: pc } = await supabase.from('post_comments').select('post_id').in('post_id', postIds)
+      const cmap: Record<string, number> = {}
+      postIds.forEach((id) => (cmap[id] = 0))
+      ;(pc || []).forEach((c: { post_id: string }) => (cmap[c.post_id] = (cmap[c.post_id] ?? 0) + 1))
+      setCommentCounts((prev) => ({ ...prev, ...cmap }))
+    }
+    return list
+  }
+
+  const openGroup = async (gid: string) => {
+    setSelectedGroupId(gid)
+    setGroupFeed([])
+    const { data: mem } = await supabase.from('group_members').select('user_id').eq('group_id', gid)
+    const memberIds = (mem || []).map((m: { user_id: string }) => m.user_id)
+    // Dedup por (usuario, workout) para no repetir el mismo entrenamiento.
+    const posts = await loadFeed({ userIds: memberIds })
+    const seen = new Set<string>()
+    setGroupFeed(
+      posts.filter((p) => {
+        if (!p.workout_id) return true
+        const key = `${p.user_id}:${p.workout_id}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+    )
+  }
+
   const load = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     setUserId(user?.id ?? null)
@@ -119,51 +194,8 @@ export default function FriendsPage() {
     setGroupNames(names)
     const myGroupIds = groupList.map((g) => g.id)
 
-    // Feed de posts.
-    const { data: posts } = await supabase
-      .from('group_posts')
-      .select('id, group_id, user_id, summary, photo_url, created_at, workout_id, workout:workouts(started_at, routine:routines(id, name))')
-      .order('created_at', { ascending: false })
-      .limit(80)
-    const feedPosts = ((posts as any[]) || []).map((p) => {
-      const w = Array.isArray(p.workout) ? p.workout[0] : p.workout
-      const r = w && (Array.isArray(w.routine) ? w.routine[0] : w.routine)
-      return { ...p, workoutDate: w?.started_at ?? null, routineName: r?.name ?? null, routineId: r?.id ?? null } as FeedPost
-    })
-    setFeed(feedPosts)
-
-    const uids = [...new Set(feedPosts.map((p) => p.user_id))]
-    if (uids.length) {
-      const { data: profs } = await supabase.from('profiles').select('id, handle, display_name, avatar_url').in('id', uids)
-      const h: Record<string, string | null> = {}
-      const a: Record<string, { handle: string | null; display_name: string | null; avatar_url: string | null }> = {}
-      ;(profs || []).forEach((p: { id: string; handle: string | null; display_name: string | null; avatar_url: string | null }) => {
-        h[p.id] = p.handle
-        a[p.id] = { handle: p.handle, display_name: p.display_name, avatar_url: p.avatar_url }
-      })
-      setHandles(h)
-      setAuthors(a)
-    }
-
-    // Likes 💪 de los posts del feed.
-    const postIds = feedPosts.map((p) => p.id)
-    if (postIds.length) {
-      const { data: pl } = await supabase.from('post_likes').select('post_id, user_id').in('post_id', postIds)
-      const map: Record<string, { count: number; mine: boolean }> = {}
-      postIds.forEach((id) => (map[id] = { count: 0, mine: false }))
-      ;(pl || []).forEach((l: { post_id: string; user_id: string }) => {
-        if (!map[l.post_id]) map[l.post_id] = { count: 0, mine: false }
-        map[l.post_id].count++
-        if (l.user_id === user?.id) map[l.post_id].mine = true
-      })
-      setLikes(map)
-
-      const { data: pc } = await supabase.from('post_comments').select('post_id').in('post_id', postIds)
-      const cmap: Record<string, number> = {}
-      postIds.forEach((id) => (cmap[id] = 0))
-      ;(pc || []).forEach((c: { post_id: string }) => (cmap[c.post_id] = (cmap[c.post_id] ?? 0) + 1))
-      setCommentCounts(cmap)
-    }
+    // Feed de check-ins.
+    setFeed(await loadFeed({ meId: user?.id }))
 
     // Mi rutina activa (para "mostrar rutina" en el check-in).
     const { data: prof } = await supabase
@@ -387,43 +419,98 @@ export default function FriendsPage() {
     }
   }
 
+  const renderCheckin = (p: FeedPost) => (
+    <CheckinCard
+      key={p.id}
+      post={p}
+      authorHandle={authors[p.user_id]?.handle ?? handles[p.user_id] ?? null}
+      authorName={authors[p.user_id]?.display_name ?? null}
+      authorAvatar={authors[p.user_id]?.avatar_url ?? null}
+      userId={userId}
+      likeCount={likes[p.id]?.count ?? 0}
+      liked={!!likes[p.id]?.mine}
+      onToggleLike={() => toggleLike(p.id)}
+      commentCount={commentCounts[p.id] ?? 0}
+      onCommentCount={(n) => setCommentCounts((prev) => ({ ...prev, [p.id]: n }))}
+      onOpenProfile={() => {
+        const h = authors[p.user_id]?.handle ?? handles[p.user_id]
+        if (h) router.push(`/u/${h}`)
+      }}
+      onOpenRoutine={() => p.routineId && router.push(`/r/${p.routineId}`)}
+    />
+  )
+
   return (
-    <Box sx={{ minHeight: '100vh', pt: 2, pb: 12 }}>
+    <Box sx={{ minHeight: '100vh', pt: 1, pb: 12 }}>
 
-      {/* Mis grupos */}
-      <Box sx={{ px: 3, pb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-            Mis grupos
-          </Typography>
-          <Button size="small" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-            Crear grupo
-          </Button>
-        </Box>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {groups.length === 0 && (
-            <Typography variant="body2" color="text.secondary">
-              Todavía no estás en ningún grupo.
+      {/* Vista de un grupo: su feed de check-ins */}
+      {selectedGroupId ? (
+        <>
+          <Box sx={{ px: 2, pt: 1, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton onClick={() => setSelectedGroupId(null)} aria-label="Volver">
+              <ArrowBackIcon />
+            </IconButton>
+            <Typography variant="h6" sx={{ fontWeight: 800, flex: 1 }}>
+              {groupNames[selectedGroupId] ?? 'Grupo'}
             </Typography>
-          )}
-          {groups.map((g) => (
-            <Card key={g.id}>
-              <CardActionArea onClick={() => router.push(`/groups/${g.id}`)}>
-                <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1.5 }}>
-                  <GroupIcon sx={{ color: 'primary.main' }} />
-                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                    {g.name}
-                  </Typography>
-                </CardContent>
-              </CardActionArea>
-            </Card>
-          ))}
-        </Box>
-      </Box>
+            <Button size="small" color="inherit" onClick={() => router.push(`/groups/${selectedGroupId}`)}>
+              Ver grupo
+            </Button>
+          </Box>
+          <Box sx={{ px: 3, pb: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {groupFeed.length === 0 ? (
+              <Typography variant="body2" color="text.hint" sx={{ textAlign: 'center', pt: 4 }}>
+                Todavía no hay check-ins en este grupo.
+              </Typography>
+            ) : (
+              groupFeed.map(renderCheckin)
+            )}
+          </Box>
+        </>
+      ) : (
+        <>
+          {/* Pestañas */}
+          <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth" sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+            <Tab value="checkins" label="Check-Ins" />
+            <Tab value="grupos" label="Grupos" />
+          </Tabs>
 
-      {/* Desafíos */}
-      {challenges.length > 0 && (
-        <Box sx={{ px: 3, pb: 2 }}>
+          {/* TAB GRUPOS */}
+          {tab === 'grupos' && (
+            <Box sx={{ px: 3, pt: 2, pb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+                  Mis grupos
+                </Typography>
+                <Button size="small" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+                  Crear grupo
+                </Button>
+              </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {groups.length === 0 && (
+                  <Typography variant="body2" color="text.hint">
+                    Todavía no estás en ningún grupo.
+                  </Typography>
+                )}
+                {groups.map((g) => (
+                  <Card key={g.id}>
+                    <CardActionArea onClick={() => openGroup(g.id)}>
+                      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1.5 }}>
+                        <GroupIcon sx={{ color: 'primary.main' }} />
+                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                          {g.name}
+                        </Typography>
+                      </CardContent>
+                    </CardActionArea>
+                  </Card>
+                ))}
+              </Box>
+            </Box>
+          )}
+
+      {/* Desafíos (en Check-Ins) */}
+      {tab === 'checkins' && challenges.length > 0 && (
+        <Box sx={{ px: 3, pt: 2, pb: 2 }}>
           <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, mb: 1 }}>
             Desafíos
           </Typography>
@@ -469,13 +556,10 @@ export default function FriendsPage() {
         </Box>
       )}
 
-      {/* Feed de comunidades */}
-      {feed.length > 0 && (
-        <Box sx={{ px: 3, pb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-              Feed
-            </Typography>
+      {/* Feed de check-ins */}
+      {tab === 'checkins' && (
+        <Box sx={{ px: 3, pt: challenges.length > 0 ? 0 : 2, pb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 1 }}>
             <Box sx={{ display: 'flex', gap: 0.5 }}>
               <Chip
                 label="Reciente"
@@ -491,29 +575,18 @@ export default function FriendsPage() {
               />
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {orderedFeed.map((p) => (
-              <CheckinCard
-                key={p.id}
-                post={p}
-                authorHandle={authors[p.user_id]?.handle ?? handles[p.user_id] ?? null}
-                authorName={authors[p.user_id]?.display_name ?? null}
-                authorAvatar={authors[p.user_id]?.avatar_url ?? null}
-                userId={userId}
-                likeCount={likes[p.id]?.count ?? 0}
-                liked={!!likes[p.id]?.mine}
-                onToggleLike={() => toggleLike(p.id)}
-                commentCount={commentCounts[p.id] ?? 0}
-                onCommentCount={(n) => setCommentCounts((prev) => ({ ...prev, [p.id]: n }))}
-                onOpenProfile={() => {
-                  const h = authors[p.user_id]?.handle ?? handles[p.user_id]
-                  if (h) router.push(`/u/${h}`)
-                }}
-                onOpenRoutine={() => p.routineId && router.push(`/r/${p.routineId}`)}
-              />
-            ))}
-          </Box>
+          {orderedFeed.length === 0 ? (
+            <Typography variant="body2" color="text.hint" sx={{ textAlign: 'center', pt: 4 }}>
+              Todavía no hay check-ins. ¡Entrená y publicá el tuyo!
+            </Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {orderedFeed.map(renderCheckin)}
+            </Box>
+          )}
         </Box>
+      )}
+        </>
       )}
 
       {/* FAB con acciones rápidas */}
