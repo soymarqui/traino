@@ -118,10 +118,23 @@ export default function PublicRoutinePage() {
 
         {!loading && routine && (
           <>
+            {routine.cover_url && (
+              <Box
+                component="img"
+                src={routine.cover_url}
+                alt={routine.name}
+                sx={{ width: '100%', aspectRatio: '16 / 9', objectFit: 'cover', borderRadius: 3 }}
+              />
+            )}
             <Box>
               <Typography variant="h5" sx={{ fontWeight: 700 }}>
                 {routine.name}
               </Typography>
+              {routine.description && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1, whiteSpace: 'pre-line' }}>
+                  {routine.description}
+                </Typography>
+              )}
               {owner?.handle && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
                   <Typography variant="body2" color="text.secondary">

@@ -33,7 +33,7 @@ import ChecklistIcon from '@mui/icons-material/Checklist'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
-type Result = { id: string; name: string; handle: string | null }
+type Result = { id: string; name: string; handle: string | null; description?: string | null; cover_url?: string | null }
 type UserResult = { id: string; handle: string | null; display_name: string | null; avatar_url: string | null }
 type ChallengeResult = { id: string; name: string; objective: string | null; group_id: string | null }
 type GroupRow = { id: string; name: string; role: string }
@@ -406,7 +406,7 @@ export default function FriendsPage() {
     if (ownerIds.length) routineFilters.push(`owner_id.in.(${ownerIds.join(',')})`)
     const { data: routines } = await supabase
       .from('routines')
-      .select('id, name, owner_id')
+      .select('id, name, owner_id, description, cover_url')
       .eq('visibility', 'public')
       .or(routineFilters.join(','))
       .limit(15)
@@ -417,10 +417,12 @@ export default function FriendsPage() {
       ;(owners || []).forEach((o: { id: string; handle: string | null }) => (handleById[o.id] = o.handle))
     }
     setResults(
-      ((routines as { id: string; name: string; owner_id: string }[]) || []).map((r) => ({
+      ((routines as { id: string; name: string; owner_id: string; description: string | null; cover_url: string | null }[]) || []).map((r) => ({
         id: r.id,
         name: r.name,
         handle: handleById[r.owner_id] ?? null,
+        description: r.description,
+        cover_url: r.cover_url,
       }))
     )
 
@@ -693,12 +695,24 @@ export default function FriendsPage() {
             {results.map((r) => (
               <Card key={r.id} sx={{ borderLeft: '3px solid', borderColor: 'success.main' }}>
                 <CardActionArea onClick={() => router.push(`/r/${r.id}`)}>
-                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
-                    <ChecklistIcon sx={{ color: 'success.main' }} />
+                  {r.cover_url && (
+                    <Box component="img" src={r.cover_url} alt="" sx={{ width: '100%', height: 120, objectFit: 'cover', display: 'block' }} />
+                  )}
+                  <CardContent sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, py: '12px !important' }}>
+                    <ChecklistIcon sx={{ color: 'success.main', mt: 0.3 }} />
                     <Box sx={{ flex: 1 }}>
                       <Typography variant="body1" sx={{ fontWeight: 600 }}>{r.name}</Typography>
                       {r.handle && (
                         <Typography variant="caption" color="text.secondary">por @{r.handle}</Typography>
+                      )}
+                      {r.description && (
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mt: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                        >
+                          {r.description}
+                        </Typography>
                       )}
                     </Box>
                   </CardContent>

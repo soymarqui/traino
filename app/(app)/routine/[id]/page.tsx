@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Card from '@mui/material/Card'
@@ -19,6 +19,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import CloseIcon from '@mui/icons-material/Close'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteOutlineIcon from '@mui/icons-material/Delete'
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import { createClient } from '@/lib/supabase/client'
 import { Equipment, Routine, RoutineDay, RoutineExercise, RoutineExerciseSet } from '@/types/database'
 import { useRouter, useParams } from 'next/navigation'
@@ -56,6 +57,9 @@ export default function RoutineDetailPage() {
   const [renameOpen, setRenameOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [deleteDayId, setDeleteDayId] = useState<string | null>(null)
+  const [description, setDescription] = useState('')
+  const [uploadingCover, setUploadingCover] = useState(false)
+  const coverRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -75,9 +79,36 @@ export default function RoutineDetailPage() {
         .order('position'),
     ])
     setRoutine(r as Routine)
+    setDescription((r as Routine)?.description ?? '')
     setDays((d as RoutineDay[]) || [])
     setItems((ex as RoutineExercise[]) || [])
     setLoading(false)
+  }
+
+  const saveDescription = async () => {
+    if (!routine) return
+    const value = description.trim() || null
+    if (value === (routine.description ?? null)) return
+    setRoutine({ ...routine, description: value })
+    await supabase.from('routines').update({ description: value }).eq('id', routineId)
+  }
+
+  const handleCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    setUploadingCover(true)
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+    const path = `${user.id}/${routineId}.${ext}`
+    const { error } = await supabase.storage.from('routine-covers').upload(path, file, { upsert: true })
+    if (!error) {
+      const { data } = supabase.storage.from('routine-covers').getPublicUrl(path)
+      const url = `${data.publicUrl}?t=${Date.now()}`
+      await supabase.from('routines').update({ cover_url: url }).eq('id', routineId)
+      setRoutine((prev) => (prev ? { ...prev, cover_url: url } : prev))
+    }
+    setUploadingCover(false)
   }
 
   const setVisibility = async (value: 'private' | 'unlisted' | 'public') => {
@@ -191,6 +222,52 @@ export default function RoutineDetailPage() {
               <MenuItem value="unlisted">🙈 No listada</MenuItem>
               <MenuItem value="public">🌐 Pública</MenuItem>
             </TextField>
+
+            {/* Portada */}
+            <input ref={coverRef} type="file" accept="image/*" hidden onChange={handleCover} />
+            <Box
+              onClick={() => coverRef.current?.click()}
+              sx={{
+                position: 'relative',
+                width: '100%',
+                aspectRatio: '16 / 9',
+                borderRadius: 3,
+                overflow: 'hidden',
+                cursor: 'pointer',
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {routine.cover_url ? (
+                <Box component="img" src={routine.cover_url} alt="Portada" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <Box sx={{ textAlign: 'center', color: 'text.secondary' }}>
+                  <AddPhotoAlternateIcon sx={{ fontSize: 32 }} />
+                  <Typography variant="caption" sx={{ display: 'block' }}>Agregar portada</Typography>
+                </Box>
+              )}
+              {uploadingCover && (
+                <Box sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Typography variant="body2" sx={{ color: '#fff' }}>Subiendo...</Typography>
+                </Box>
+              )}
+            </Box>
+
+            {/* Descripción */}
+            <TextField
+              label="Descripción"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              onBlur={saveDescription}
+              fullWidth
+              multiline
+              rows={3}
+              placeholder="¿De qué trata? ¿A quién está dirigida? ¿Qué objetivos tiene?"
+            />
 
             {days.map((day) => {
               const dayItems = items.filter((i) => i.routine_day_id === day.id)
