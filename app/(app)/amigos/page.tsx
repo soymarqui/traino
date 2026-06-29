@@ -141,9 +141,9 @@ export default function AmigosPage() {
                     <Typography variant="body1" sx={{ fontWeight: 600, flex: 1, cursor: 'pointer' }} onClick={() => goProfile(oid)}>
                       {nameOf(oid)}
                     </Typography>
-                    <IconButton size="small" onClick={() => remove(r.id)} aria-label="Eliminar amigo">
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
+                    <Button size="small" variant="outlined" color="inherit" onClick={() => goProfile(oid)}>
+                      Ver perfil
+                    </Button>
                   </CardContent>
                 </Card>
               )

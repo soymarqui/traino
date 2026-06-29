@@ -376,9 +376,19 @@ export default function UserProfilePage() {
                   </Button>
                 )}
                 {friendship?.status === 'accepted' && (
-                  <Button fullWidth variant="outlined" color="inherit" startIcon={<HowToRegIcon />} onClick={removeFriend}>
-                    Amigos · quitar
-                  </Button>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                    <Chip
+                      icon={<HowToRegIcon />}
+                      label={`Tu ${profile.identity ? IDENTITY_LABELS[profile.identity] ?? profile.identity : 'amigo'}`}
+                      color="primary"
+                    />
+                    <Button
+                      onClick={removeFriend}
+                      sx={{ minWidth: 0, p: 0.25, fontWeight: 400, fontSize: '0.72rem', color: 'text.hint', textTransform: 'none' }}
+                    >
+                      Quitar amigo
+                    </Button>
+                  </Box>
                 )}
               </Box>
             )}
