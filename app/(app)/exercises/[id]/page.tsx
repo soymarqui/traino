@@ -302,13 +302,10 @@ export default function ExerciseDetailPage() {
 
         {!loading && exercise && (
           <>
-            {/* Título */}
+            {/* El nombre ya se muestra sobre el video; acá solo descripción + chips */}
             <Box>
-              <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                {exercise.name}
-              </Typography>
               {exercise.description && (
-                <Box sx={{ mt: 0.5 }}>
+                <Box>
                   <Markdown text={exercise.description} />
                 </Box>
               )}
