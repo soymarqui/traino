@@ -16,8 +16,10 @@ import Divider from '@mui/material/Divider'
 import Paper from '@mui/material/Paper'
 import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
+import Badge from '@mui/material/Badge'
 import MenuIcon from '@mui/icons-material/Menu'
 import SearchIcon from '@mui/icons-material/Search'
+import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone'
 import HomeIcon from '@mui/icons-material/Home'
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
 import ChecklistIcon from '@mui/icons-material/Checklist'
@@ -35,6 +37,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { RestTimerProvider } from '@/components/RestTimer'
 import { alpha } from '@mui/material/styles'
+import { fetchNotifications, countUnread } from '@/lib/notifications'
 
 // Acciones primarias, siempre visibles abajo.
 const BOTTOM_TABS = [
@@ -64,6 +67,7 @@ export default function AppLayout({
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [handle, setHandle] = useState<string | null>(null)
+  const [unread, setUnread] = useState(0)
   const supabase = createClient()
 
   useEffect(() => {
@@ -74,9 +78,16 @@ export default function AppLayout({
       // Handle propio (para "Ver Perfil").
       const { data: myProfile } = await supabase.from('profiles').select('handle').eq('id', user.id).maybeSingle()
       setHandle((myProfile as { handle: string | null } | null)?.handle ?? null)
+      // Notificaciones sin leer (para el indicador de la campana).
+      try {
+        const notifs = await fetchNotifications(supabase, user.id)
+        setUnread(countUnread(notifs, user.user_metadata?.notifs_seen_at ?? null))
+      } catch {
+        /* noop */
+      }
     }
     load()
-  }, [])
+  }, [pathname])
 
   const go = (value: string) => {
     setDrawerOpen(false)
@@ -127,6 +138,11 @@ export default function AppLayout({
           </Typography>
           <IconButton onClick={() => router.push('/search')} sx={{ color: 'text.primary' }} aria-label="buscar">
             <SearchIcon />
+          </IconButton>
+          <IconButton onClick={() => router.push('/notificaciones')} sx={{ color: 'text.primary' }} aria-label="notificaciones">
+            <Badge color="error" variant="dot" invisible={unread === 0}>
+              <NotificationsNoneIcon />
+            </Badge>
           </IconButton>
           <IconButton onClick={() => router.push('/settings')} sx={{ p: 0 }} aria-label="perfil">
             <Avatar
