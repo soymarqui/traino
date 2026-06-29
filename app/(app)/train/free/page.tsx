@@ -13,6 +13,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { createClient } from '@/lib/supabase/client'
 import { equipmentLabel } from '@/lib/equipment'
 import { muscleLabel } from '@/lib/muscles'
+import { gradientBorderSx } from '@/lib/theme'
 import { Exercise, Muscle } from '@/types/database'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -167,13 +168,10 @@ function FreeTrainInner() {
               <Card
                 key={ex.id}
                 onClick={() => toggle(ex.id)}
-                sx={{
-                  flex: '0 0 78%',
-                  scrollSnapAlign: 'center',
-                  cursor: 'pointer',
-                  border: '2px solid',
-                  borderColor: isSelected ? 'primary.main' : 'divider',
-                }}
+                sx={[
+                  { flex: '0 0 78%', scrollSnapAlign: 'center', cursor: 'pointer' },
+                  isSelected ? gradientBorderSx(18) : {},
+                ]}
               >
                 <CardContent sx={{ minHeight: 180, display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>

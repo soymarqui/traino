@@ -1,10 +1,21 @@
 import { createTheme } from '@mui/material/styles'
 
+// Gradiente lima de acento (para botones primarios, headers y bordes destacados).
+export const limeGradient = 'linear-gradient(135deg, #D4F94F 0%, #A6D811 100%)'
+
+// Borde con gradiente para elementos seleccionados/destacados. Se adapta al tema.
+export const gradientBorderSx = (radius = 16) => (t: { palette: { background: { paper: string }; primary: { main: string; dark: string } } }) => ({
+  borderRadius: `${radius}px`,
+  border: '2px solid transparent',
+  background: `linear-gradient(${t.palette.background.paper}, ${t.palette.background.paper}) padding-box, linear-gradient(135deg, ${t.palette.primary.main}, ${t.palette.primary.dark}) border-box`,
+})
+
 export const theme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
       main: '#C6F135',
+      dark: '#9BC91F',
       contrastText: '#0A0A0A',
     },
     secondary: {
@@ -36,12 +47,18 @@ export const theme = createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
+          borderRadius: 999,
           textTransform: 'none',
           fontWeight: 600,
           fontSize: '1rem',
+          boxShadow: 'none',
+          '&:hover': { boxShadow: 'none' },
           '&.MuiButton-containedPrimary': {
             color: '#0A0A0A',
+            backgroundImage: limeGradient,
+          },
+          '&.MuiButton-containedPrimary:hover': {
+            backgroundImage: 'linear-gradient(135deg, #C6F135 0%, #8FB81A 100%)',
           },
         },
       },
@@ -51,6 +68,7 @@ export const theme = createTheme({
         root: {
           backgroundImage: 'none',
           border: '1px solid #222222',
+          borderRadius: 18,
         },
       },
     },
@@ -62,7 +80,7 @@ export const theme = createTheme({
     MuiChip: {
       styleOverrides: {
         root: {
-          borderRadius: 8,
+          borderRadius: 999,
         },
       },
     },

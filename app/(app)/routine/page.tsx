@@ -25,6 +25,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import PublicIcon from '@mui/icons-material/Public'
 import { createClient } from '@/lib/supabase/client'
 import { duplicateRoutine } from '@/lib/routines'
+import { gradientBorderSx } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 import SwipeableRow from '@/components/SwipeableRow'
 
@@ -188,7 +189,7 @@ export default function RoutinesPage() {
               ]
         }
       >
-        <Card sx={{ border: '2px solid', borderColor: isActive ? 'primary.main' : 'divider' }}>
+        <Card sx={isActive ? gradientBorderSx(18) : undefined}>
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box sx={{ flex: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

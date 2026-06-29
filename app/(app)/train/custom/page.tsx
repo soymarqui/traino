@@ -11,6 +11,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { createClient } from '@/lib/supabase/client'
 import { muscleLabel, muscleEmoji } from '@/lib/muscles'
+import { gradientBorderSx } from '@/lib/theme'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 type Item = {
@@ -156,11 +157,7 @@ function CustomTrainInner() {
             return (
               <Card
                 key={it.exercise_id}
-                sx={{
-                  border: '2px solid',
-                  borderColor: isSelected ? 'primary.main' : 'divider',
-                  borderRadius: 3,
-                }}
+                sx={isSelected ? gradientBorderSx(18) : { borderRadius: '18px' }}
               >
                 <CardActionArea onClick={() => toggle(it.exercise_id)} sx={{ height: '100%' }}>
                   <Box sx={{ aspectRatio: '1 / 1', p: 1.5, display: 'flex', flexDirection: 'column' }}>
