@@ -472,9 +472,11 @@ export default function WorkoutPage() {
 
   const handleFinish = async () => {
     setFinishing(true)
+    const now = Date.now()
+    const durationSec = startedAt ? Math.max(0, Math.round((now - startedAt) / 1000)) : null
     await supabase
       .from('workouts')
-      .update({ finished_at: new Date().toISOString() })
+      .update({ finished_at: new Date(now).toISOString(), ...(durationSec != null ? { duration_seconds: durationSec } : {}) })
       .eq('id', workoutId)
     setFinishing(false)
     setFinishedAt(Date.now())

@@ -22,6 +22,7 @@ import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
 import ChecklistIcon from '@mui/icons-material/Checklist'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
 import HistoryIcon from '@mui/icons-material/History'
+import InsightsIcon from '@mui/icons-material/Insights'
 import TuneIcon from '@mui/icons-material/Tune'
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts'
 import PersonIcon from '@mui/icons-material/Person'
@@ -44,6 +45,7 @@ const BOTTOM_TABS = [
 // Secciones secundarias, en el menú lateral (burger).
 const DRAWER_ITEMS = [
   { label: 'Ejercicios', value: '/exercises', icon: <MenuBookIcon /> },
+  { label: 'Estadísticas', value: '/stats', icon: <InsightsIcon /> },
   { label: 'Historial', value: '/history', icon: <HistoryIcon /> },
   { label: 'Ajustes', value: '/settings', icon: <TuneIcon /> },
   { label: 'Configuración de cuenta', value: '/account', icon: <ManageAccountsIcon /> },
