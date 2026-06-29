@@ -16,6 +16,7 @@ import Snackbar from '@mui/material/Snackbar'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import GroupAddIcon from '@mui/icons-material/GroupAdd'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
+import InstagramIcon from '@mui/icons-material/Instagram'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useParams } from 'next/navigation'
 
@@ -28,6 +29,8 @@ type Profile = {
   avatar_url: string | null
   bio: string | null
   identity: string | null
+  instagram: string | null
+  instagram_visibility: 'public' | 'contacts' | 'hidden'
 }
 
 export default function UserProfilePage() {
@@ -38,6 +41,7 @@ export default function UserProfilePage() {
   const [challenges, setChallenges] = useState<{ id: string; name: string; objective: string | null; duration_days: number | null }[]>([])
   const [adminGroups, setAdminGroups] = useState<{ id: string; name: string }[]>([])
   const [memberOf, setMemberOf] = useState<string[]>([])
+  const [igVisible, setIgVisible] = useState(false)
   const [loading, setLoading] = useState(true)
   const [anchor, setAnchor] = useState<null | HTMLElement>(null)
   const [snack, setSnack] = useState('')
@@ -53,7 +57,7 @@ export default function UserProfilePage() {
     const { data: { user } } = await supabase.auth.getUser()
     const { data: prof } = await supabase
       .from('profiles')
-      .select('id, handle, display_name, avatar_url, bio, identity')
+      .select('id, handle, display_name, avatar_url, bio, identity, instagram, instagram_visibility')
       .eq('handle', handle)
       .maybeSingle()
     setProfile(prof as Profile | null)
@@ -88,11 +92,24 @@ export default function UserProfilePage() {
       setAdminGroups(groups)
 
       if (prof) {
-        const { data: theirs } = await supabase
+        const theirIds = await supabase
           .from('group_members')
           .select('group_id')
           .eq('user_id', (prof as Profile).id)
-        setMemberOf((theirs || []).map((m: { group_id: string }) => m.group_id))
+        const theirGroupIds = (theirIds.data || []).map((m: { group_id: string }) => m.group_id)
+        setMemberOf(theirGroupIds)
+
+        // ¿Puede ver el Instagram? public siempre; contacts si comparten comunidad; propio perfil siempre.
+        const vis = (prof as Profile).instagram_visibility ?? 'public'
+        if ((prof as Profile).id === user.id || vis === 'public') {
+          setIgVisible(true)
+        } else if (vis === 'contacts') {
+          const mineIds = (mem || []).map((m: { group_id: string }) => m.group_id)
+          // mem solo trae grupos donde soy admin; traigo todos mis grupos para el cruce.
+          const { data: allMine } = await supabase.from('group_members').select('group_id').eq('user_id', user.id)
+          const myGroupIds = new Set([...mineIds, ...((allMine || []).map((m: { group_id: string }) => m.group_id))])
+          setIgVisible(theirGroupIds.some((g) => myGroupIds.has(g)))
+        }
       }
     }
     setLoading(false)
@@ -164,6 +181,19 @@ export default function UserProfilePage() {
               <Typography variant="body2" color="text.secondary">
                 {profile.bio}
               </Typography>
+            )}
+
+            {profile.instagram && igVisible && (
+              <Box
+                component="a"
+                href={`https://instagram.com/${profile.instagram}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, color: 'text.primary', textDecoration: 'none', width: 'fit-content' }}
+              >
+                <InstagramIcon sx={{ color: '#E1306C' }} />
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>@{profile.instagram}</Typography>
+              </Box>
             )}
 
             <Box>

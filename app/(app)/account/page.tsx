@@ -55,6 +55,8 @@ export default function AccountPage() {
   const [error, setError] = useState('')
   const [isPublic, setIsPublic] = useState(true)
   const [allowAdd, setAllowAdd] = useState(true)
+  const [instagram, setInstagram] = useState('')
+  const [instagramVis, setInstagramVis] = useState<'public' | 'contacts' | 'hidden'>('public')
   const [form, setForm] = useState({
     name: '',
     handle: '',
@@ -84,7 +86,7 @@ export default function AccountPage() {
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('handle, bio, identity, is_public, allow_community_add')
+          .select('handle, bio, identity, is_public, allow_community_add, instagram, instagram_visibility')
           .eq('id', user.id)
           .maybeSingle()
         handle = profile?.handle ?? ''
@@ -92,6 +94,8 @@ export default function AccountPage() {
         identity = profile?.identity ?? ''
         setIsPublic(profile?.is_public !== false)
         setAllowAdd(profile?.allow_community_add !== false)
+        setInstagram(profile?.instagram ?? '')
+        setInstagramVis((profile?.instagram_visibility as 'public' | 'contacts' | 'hidden') ?? 'public')
       }
 
       setForm({
@@ -183,6 +187,8 @@ export default function AccountPage() {
       avatar_url: avatar || null,
       bio: form.bio.trim() || null,
       identity: form.identity || null,
+      instagram: instagram.trim().replace(/^@/, '') || null,
+      instagram_visibility: instagramVis,
     })
 
     setSaving(false)
@@ -355,6 +361,27 @@ export default function AccountPage() {
             placeholder="Contá algo sobre vos"
             helperText="Pública (para la sección de comunidad)."
           />
+
+          <TextField
+            label="Instagram"
+            value={instagram}
+            onChange={(e) => setInstagram(e.target.value)}
+            fullWidth
+            placeholder="tu_usuario"
+            slotProps={{ input: { startAdornment: <span style={{ color: '#888', marginRight: 2 }}>@</span> } }}
+          />
+
+          <TextField
+            select
+            label="Visibilidad del Instagram"
+            value={instagramVis}
+            onChange={(e) => setInstagramVis(e.target.value as 'public' | 'contacts' | 'hidden')}
+            fullWidth
+          >
+            <MenuItem value="public">🌐 Público (cualquiera)</MenuItem>
+            <MenuItem value="contacts">👥 Solo GymBros/GymSis/GymPals</MenuItem>
+            <MenuItem value="hidden">🙈 Oculto</MenuItem>
+          </TextField>
 
           <Button variant="contained" onClick={handleSave} disabled={saving || loading}>
             {saving ? 'Guardando...' : 'Guardar perfil'}
