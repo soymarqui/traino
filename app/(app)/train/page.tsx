@@ -9,13 +9,25 @@ import CardContent from '@mui/material/CardContent'
 import Button from '@mui/material/Button'
 import Alert from '@mui/material/Alert'
 import { createClient } from '@/lib/supabase/client'
+import { muscleEmoji } from '@/lib/muscles'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 type DayRow = {
   id: string
   name: string
   position: number
-  routine_exercises: { count: number }[]
+  routine_exercises: { exercise: { muscle: { slug: string } | null } | null }[]
+}
+
+// Emojis distintos de los músculos del día (cue visual rápido).
+function dayMuscleEmojis(day: DayRow): string[] {
+  const slugs = new Set<string>()
+  ;(day.routine_exercises || []).forEach((re: any) => {
+    const ex = Array.isArray(re.exercise) ? re.exercise[0] : re.exercise
+    const m = ex && (Array.isArray(ex.muscle) ? ex.muscle[0] : ex.muscle)
+    if (m?.slug) slugs.add(m.slug)
+  })
+  return [...slugs].map((s) => muscleEmoji(s)).filter(Boolean) as string[]
 }
 
 function formatDateLabel(d: string): string {
@@ -63,13 +75,13 @@ function TrainInner() {
       supabase.from('routines').select('name').eq('id', activeId).maybeSingle(),
       supabase
         .from('routine_days')
-        .select('id, name, position, routine_exercises(count)')
+        .select('id, name, position, routine_exercises(exercise:exercises(muscle:muscles(slug)))')
         .eq('routine_id', activeId)
         .order('position'),
     ])
 
     setRoutineName((routine as { name: string } | null)?.name ?? null)
-    setDays((daysData as DayRow[]) || [])
+    setDays((daysData as unknown as DayRow[]) || [])
     setLoading(false)
   }
 
@@ -204,7 +216,8 @@ function TrainInner() {
             </Typography>
 
             {days.map((day) => {
-              const count = day.routine_exercises?.[0]?.count ?? 0
+              const count = day.routine_exercises?.length ?? 0
+              const emojis = dayMuscleEmojis(day)
               return (
                 <Card key={day.id}>
                   <CardActionArea
@@ -212,9 +225,16 @@ function TrainInner() {
                     onClick={() => startDay(day.id)}
                   >
                     <CardContent>
-                      <Typography variant="body1" sx={{ fontWeight: 700 }}>
-                        {day.name}
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body1" sx={{ fontWeight: 700, flex: 1 }}>
+                          {day.name}
+                        </Typography>
+                        {emojis.length > 0 && (
+                          <Typography sx={{ fontSize: '1.15rem', letterSpacing: 1 }}>
+                            {emojis.join(' ')}
+                          </Typography>
+                        )}
+                      </Box>
                       <Typography variant="body2" color="text.secondary">
                         {count} ejercicios{starting === day.id ? ' · empezando...' : ''}
                       </Typography>
