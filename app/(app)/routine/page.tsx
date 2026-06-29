@@ -74,7 +74,7 @@ export default function RoutinesPage() {
     setUserId(user?.id ?? null)
 
     const [{ data: ownedData }, { data: profile }, { data: subs }] = await Promise.all([
-      supabase.from('routines').select('id, name, visibility, owner_id, description, cover_url, routine_exercises(count)').order('created_at'),
+      supabase.from('routines').select('id, name, visibility, owner_id, description, cover_url, routine_exercises(count)').eq('owner_id', user?.id ?? '').order('created_at'),
       user ? supabase.from('profiles').select('active_routine_id').eq('id', user.id).maybeSingle() : Promise.resolve({ data: null }),
       user ? supabase.from('routine_subscriptions').select('routine_id').eq('user_id', user.id) : Promise.resolve({ data: [] }),
     ])

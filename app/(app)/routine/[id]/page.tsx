@@ -69,6 +69,7 @@ export default function RoutineDetailPage() {
 
   const fetchData = async () => {
     setLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
     const [{ data: r }, { data: d }, { data: ex }] = await Promise.all([
       supabase.from('routines').select('*').eq('id', routineId).single(),
       supabase.from('routine_days').select('*').eq('routine_id', routineId).order('position'),
@@ -78,6 +79,11 @@ export default function RoutineDetailPage() {
         .eq('routine_id', routineId)
         .order('position'),
     ])
+    // Las rutinas ajenas son de solo lectura: redirigir a la vista pública.
+    if (r && (r as Routine).owner_id && user && (r as Routine).owner_id !== user.id) {
+      router.replace(`/r/${routineId}`)
+      return
+    }
     setRoutine(r as Routine)
     setDescription((r as Routine)?.description ?? '')
     setDays((d as RoutineDay[]) || [])
