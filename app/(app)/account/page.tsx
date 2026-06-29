@@ -19,6 +19,7 @@ import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import VerifiedIcon from '@mui/icons-material/Verified'
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import { createClient } from '@/lib/supabase/client'
 import { isAdmin } from '@/lib/admin'
 import { useRouter } from 'next/navigation'
@@ -59,6 +60,10 @@ export default function AccountPage() {
   const [allowAdd, setAllowAdd] = useState(true)
   const [instagram, setInstagram] = useState('')
   const [instagramVis, setInstagramVis] = useState<'public' | 'contacts' | 'hidden'>('public')
+  const [detailsVis, setDetailsVis] = useState<'public' | 'friends' | 'hidden'>('public')
+  const [cover, setCover] = useState('')
+  const [uploadingCover, setUploadingCover] = useState(false)
+  const coverRef = useRef<HTMLInputElement>(null)
   const [isCertified, setIsCertified] = useState(false)
   const [certStatus, setCertStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none')
   const [certOpen, setCertOpen] = useState(false)
@@ -94,10 +99,12 @@ export default function AccountPage() {
       if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('handle, bio, identity, is_public, allow_community_add, instagram, instagram_visibility, is_certified')
+          .select('handle, bio, identity, is_public, allow_community_add, instagram, instagram_visibility, is_certified, cover_url, details_visibility')
           .eq('id', user.id)
           .maybeSingle()
         setIsCertified(!!profile?.is_certified)
+        setCover(profile?.cover_url ?? '')
+        setDetailsVis((profile?.details_visibility as 'public' | 'friends' | 'hidden') ?? 'public')
 
         const { data: lastReq } = await supabase
           .from('certification_requests')
@@ -149,6 +156,23 @@ export default function AccountPage() {
       setSaved(true)
     }
     setUploading(false)
+  }
+
+  const handleCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !userId) return
+    setUploadingCover(true)
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+    const path = `${userId}/cover.${ext}`
+    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+    if (!error) {
+      const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+      const url = `${data.publicUrl}?t=${Date.now()}`
+      await supabase.from('profiles').upsert({ id: userId, cover_url: url })
+      setCover(url)
+      setSaved(true)
+    }
+    setUploadingCover(false)
   }
 
   const initial = (form.name || email || '?').trim()[0]?.toUpperCase() ?? '?'
@@ -207,6 +231,9 @@ export default function AccountPage() {
       identity: form.identity || null,
       instagram: instagram.trim().replace(/^@/, '') || null,
       instagram_visibility: instagramVis,
+      age: num(form.age),
+      gender: form.gender || null,
+      details_visibility: detailsVis,
     })
 
     setSaving(false)
@@ -262,6 +289,31 @@ export default function AccountPage() {
       </Box>
 
       <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {/* Foto de portada */}
+        <input ref={coverRef} type="file" accept="image/*" hidden onChange={handleCover} />
+        <Box
+          onClick={() => coverRef.current?.click()}
+          sx={{
+            position: 'relative', width: '100%', aspectRatio: '3 / 1', borderRadius: 3, overflow: 'hidden',
+            cursor: 'pointer', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          {cover ? (
+            <Box component="img" src={cover} alt="Portada" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <Box sx={{ textAlign: 'center', color: 'text.secondary' }}>
+              <AddPhotoAlternateIcon sx={{ fontSize: 28 }} />
+              <Typography variant="caption" sx={{ display: 'block' }}>Foto de portada</Typography>
+            </Box>
+          )}
+          {uploadingCover && (
+            <Box sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Typography variant="body2" sx={{ color: '#fff' }}>Subiendo...</Typography>
+            </Box>
+          )}
+        </Box>
+
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={handlePhoto} />
         <Card>
           <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -454,6 +506,18 @@ export default function AccountPage() {
           >
             <MenuItem value="public">🌐 Público (cualquiera)</MenuItem>
             <MenuItem value="contacts">👥 Solo GymBros/GymSis/GymPals</MenuItem>
+            <MenuItem value="hidden">🙈 Oculto</MenuItem>
+          </TextField>
+
+          <TextField
+            select
+            label="Visibilidad de tus datos (edad, género)"
+            value={detailsVis}
+            onChange={(e) => setDetailsVis(e.target.value as 'public' | 'friends' | 'hidden')}
+            fullWidth
+          >
+            <MenuItem value="public">🌐 Público (cualquiera)</MenuItem>
+            <MenuItem value="friends">👥 Solo amigos</MenuItem>
             <MenuItem value="hidden">🙈 Oculto</MenuItem>
           </TextField>
 
