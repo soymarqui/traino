@@ -391,7 +391,13 @@ export default function AccountPage() {
                 renderValue: (selected: unknown) => (
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {(selected as string[]).map((v) => (
-                      <Chip key={v} size="small" label={GOALS.find((g) => g.value === v)?.label ?? v} />
+                      <Chip
+                        key={v}
+                        size="small"
+                        label={GOALS.find((g) => g.value === v)?.label ?? v}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onDelete={() => setGoals((prev) => prev.filter((x) => x !== v))}
+                      />
                     ))}
                   </Box>
                 ),

@@ -133,7 +133,11 @@ export default function AppLayout({
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ fontWeight: 700, color: 'primary.main', flex: 1 }}>
+          <Typography
+            variant="h6"
+            onClick={() => router.push('/dashboard')}
+            sx={{ fontWeight: 700, color: 'primary.main', flex: 1, cursor: 'pointer' }}
+          >
             Traino
           </Typography>
           <IconButton onClick={() => router.push('/search')} sx={{ color: 'text.primary' }} aria-label="buscar">
@@ -253,7 +257,9 @@ export default function AppLayout({
           sx={{
             bgcolor: 'transparent',
             height: 64,
-            '& .MuiBottomNavigationAction-root': { minWidth: 0 },
+            '& .MuiBottomNavigationAction-root': { minWidth: 0, px: 0.5 },
+            '& .MuiBottomNavigationAction-label': { fontSize: '0.62rem', lineHeight: 1.1 },
+            '& .MuiBottomNavigationAction-label.Mui-selected': { fontSize: '0.66rem' },
           }}
         >
           {BOTTOM_TABS.map((tab) => (

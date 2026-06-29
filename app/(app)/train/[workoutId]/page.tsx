@@ -136,6 +136,7 @@ export default function WorkoutPage() {
   const [shareOpen, setShareOpen] = useState(false)
   const [shareSel, setShareSel] = useState<string[]>([])
   const [shared, setShared] = useState(false)
+  const [alreadyFinished, setAlreadyFinished] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [marking, setMarking] = useState<{ set: SetRow; exName: string; unitLabel: string; unit: string; distanceUnit: string | null } | null>(null)
   const [weight, setWeight] = useState('')
@@ -167,12 +168,13 @@ export default function WorkoutPage() {
 
     const { data: workout } = await supabase
       .from('workouts')
-      .select('photo_url, started_at')
+      .select('photo_url, started_at, finished_at')
       .eq('id', workoutId)
       .maybeSingle()
-    const w = workout as { photo_url: string | null; started_at: string | null } | null
+    const w = workout as { photo_url: string | null; started_at: string | null; finished_at: string | null } | null
     setPhotoUrl(w?.photo_url ?? '')
     setStartedAt(w?.started_at ? new Date(w.started_at).getTime() : null)
+    setAlreadyFinished(!!w?.finished_at)
 
     supabase.from('groups').select('id, name').then(({ data }) => setGroups(data || []))
 
@@ -984,7 +986,7 @@ export default function WorkoutPage() {
             {uploadingPhoto ? 'Subiendo...' : photoUrl ? 'Cambiar foto' : 'Agregar foto'}
           </Button>
           <Button variant="contained" size="large" fullWidth onClick={handleFinish} disabled={finishing}>
-            {finishing ? 'Guardando...' : 'Finalizar entrenamiento'}
+            {finishing ? 'Guardando...' : alreadyFinished ? 'Actualizar entrenamiento' : 'Finalizar entrenamiento'}
           </Button>
           <Button color="error" fullWidth onClick={() => setDeleteOpen(true)} sx={{ mt: 1 }}>
             Eliminar entrenamiento
@@ -1140,11 +1142,16 @@ export default function WorkoutPage() {
 
       {/* Buscar variante */}
       <Dialog open={!!variantFor} onClose={() => setVariantFor(null)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 700 }}>
-          Buscar variante
-          <Typography variant="body2" color="text.secondary">
-            Mismo músculo{variantFor?.muscle?.name ? `: ${variantFor.muscle.name}` : ''}
-          </Typography>
+        <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+          <Box sx={{ flex: 1 }}>
+            Buscar variante
+            <Typography variant="body2" color="text.secondary">
+              Mismo músculo{variantFor?.muscle?.name ? `: ${variantFor.muscle.name}` : ''}
+            </Typography>
+          </Box>
+          <IconButton aria-label="Cerrar" onClick={() => setVariantFor(null)}>
+            <CloseIcon />
+          </IconButton>
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1, pb: 2 }}>
           {loadingVariants && <Typography variant="body2" color="text.secondary">Buscando...</Typography>}
@@ -1154,13 +1161,12 @@ export default function WorkoutPage() {
           {variants.map((v) => (
             <Box
               key={v.id}
-              onClick={() => chooseVariant(v)}
               sx={{
-                display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 2, cursor: 'pointer',
-                border: '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'action.hover' },
+                display: 'flex', alignItems: 'center', gap: 1, p: 1.5, borderRadius: 2,
+                border: '1px solid', borderColor: 'divider',
               }}
             >
-              <Box sx={{ flex: 1 }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="body1" sx={{ fontWeight: 600 }}>{v.name}</Typography>
                 <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
                   {(v.equipment ?? []).length > 0 ? (
@@ -1170,7 +1176,10 @@ export default function WorkoutPage() {
                   )}
                 </Box>
               </Box>
-              <Button size="small" variant="contained">Usar</Button>
+              <Button size="small" variant="contained" onClick={() => chooseVariant(v)}>Usar</Button>
+              <IconButton size="small" aria-label="Ver ejercicio" onClick={() => router.push(`/exercises/${v.id}`)}>
+                <ChevronRightIcon />
+              </IconButton>
             </Box>
           ))}
         </DialogContent>
