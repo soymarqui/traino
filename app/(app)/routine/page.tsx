@@ -238,7 +238,7 @@ export default function RoutinesPage() {
                 position: 'absolute',
                 inset: 0,
                 background: r.cover_url
-                  ? 'linear-gradient(to top, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.5) 65%, rgba(0,0,0,0.2) 100%)'
+                  ? 'linear-gradient(to top right, rgba(0,0,0,0.98) 0%, rgba(0,0,0,0.9) 35%, rgba(0,0,0,0.6) 70%, rgba(0,0,0,0.2) 100%)'
                   : 'transparent',
               }}
             />

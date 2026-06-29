@@ -330,7 +330,7 @@ export default function UserProfilePage() {
                             <Box component="img" src={r.cover_url} alt="" sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                           )}
                           {/* Gradiente para legibilidad del título */}
-                          <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 35%, rgba(0,0,0,0.2) 70%, rgba(0,0,0,0) 100%)' }} />
+                          <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top right, rgba(0,0,0,0.97) 0%, rgba(0,0,0,0.8) 40%, rgba(0,0,0,0.35) 75%, rgba(0,0,0,0) 100%)' }} />
                           <Typography
                             variant="body1"
                             sx={{ position: 'absolute', left: 12, right: 12, bottom: 10, fontWeight: 700, color: '#fff', lineHeight: 1.2 }}
