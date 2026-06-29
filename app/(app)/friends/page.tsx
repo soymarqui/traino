@@ -32,7 +32,7 @@ import { useRouter } from 'next/navigation'
 type GroupRow = { id: string; name: string; role: string }
 type FeedPost = {
   id: string
-  group_id: string
+  group_id: string | null
   user_id: string
   summary: string | null
   photo_url: string | null
@@ -262,12 +262,12 @@ export default function FriendsPage() {
   }
 
   const saveCheckin = async () => {
-    if (!ciGroup || !userId) return
+    if (!userId) return
     setCiSaving(true)
     let photo_url: string | null = null
     if (ciFile) {
       const ext = (ciFile.name.split('.').pop() || 'jpg').toLowerCase()
-      const path = `${userId}/checkin-${ciGroup}-${ciComment.length}-${ciFile.size}.${ext}`
+      const path = `${userId}/checkin-${ciGroup || 'amigos'}-${ciComment.length}-${ciFile.size}.${ext}`
       const { error } = await supabase.storage.from('workout-photos').upload(path, ciFile, { upsert: true })
       if (!error) {
         const { data } = supabase.storage.from('workout-photos').getPublicUrl(path)
@@ -280,7 +280,7 @@ export default function FriendsPage() {
     }
     const { error } = await supabase
       .from('group_posts')
-      .insert({ group_id: ciGroup, user_id: userId, summary, photo_url })
+      .insert({ group_id: ciGroup || null, user_id: userId, summary, photo_url })
     setCiSaving(false)
     if (error) {
       setSnack('No se pudo publicar el check-in')
@@ -467,7 +467,13 @@ export default function FriendsPage() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {orderedFeed.map((p) => (
               <Card key={p.id}>
-                <CardActionArea onClick={() => router.push(`/groups/${p.group_id}`)}>
+                <CardActionArea
+                  onClick={() =>
+                    p.group_id
+                      ? router.push(`/groups/${p.group_id}`)
+                      : handles[p.user_id] && router.push(`/u/${handles[p.user_id]}`)
+                  }
+                >
                   {p.photo_url && (
                     <Box component="img" src={p.photo_url} alt="" sx={{ width: '100%', height: 140, objectFit: 'cover', display: 'block' }} />
                   )}
@@ -475,7 +481,7 @@ export default function FriendsPage() {
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {handles[p.user_id] ? `@${handles[p.user_id]}` : 'usuario'}
                       <Typography component="span" variant="body2" color="text.secondary">
-                        {' · '}{groupNames[p.group_id] ?? 'grupo'}
+                        {' · '}{p.group_id ? groupNames[p.group_id] ?? 'grupo' : 'check-in'}
                       </Typography>
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -516,7 +522,7 @@ export default function FriendsPage() {
           title="Nuevo check-in"
           open
           onClick={() => {
-            setCiGroup(groups[0]?.id ?? '')
+            setCiGroup('')
             setCheckinOpen(true)
           }}
         />
@@ -577,51 +583,45 @@ export default function FriendsPage() {
       <Dialog open={checkinOpen} onClose={() => setCheckinOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Nuevo check-in</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {groups.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Necesitás estar en una comunidad para publicar un check-in.
-            </Typography>
-          ) : (
-            <>
-              <TextField
-                select
-                fullWidth
-                label="Comunidad"
-                value={ciGroup}
-                onChange={(e) => setCiGroup(e.target.value)}
-                sx={{ mt: 1 }}
-              >
-                {groups.map((g) => (
-                  <MenuItem key={g.id} value={g.id}>
-                    {g.name}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                fullWidth
-                label="Comentario"
-                value={ciComment}
-                onChange={(e) => setCiComment(e.target.value)}
-                multiline
-                rows={2}
-                placeholder="¿Cómo te fue hoy?"
-              />
-              <Button variant="outlined" color="inherit" component="label" startIcon={<PhotoCameraIcon />}>
-                {ciFile ? ciFile.name : 'Agregar foto'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  onChange={(e) => setCiFile(e.target.files?.[0] ?? null)}
-                />
-              </Button>
-              {ciRoutine && (
-                <FormControlLabel
-                  control={<Switch checked={ciShowRoutine} onChange={(e) => setCiShowRoutine(e.target.checked)} />}
-                  label={`Mostrar mi rutina (${ciRoutine.name})`}
-                />
-              )}
-            </>
+          <TextField
+            select
+            fullWidth
+            label="¿Dónde lo publicás?"
+            value={ciGroup}
+            onChange={(e) => setCiGroup(e.target.value)}
+            helperText={ciGroup ? 'Lo ven los miembros de la comunidad y tus amigos.' : 'Lo ven tus amigos en su feed de Comunidades.'}
+            sx={{ mt: 1 }}
+          >
+            <MenuItem value="">🌐 Solo mis amigos (sin grupo)</MenuItem>
+            {groups.map((g) => (
+              <MenuItem key={g.id} value={g.id}>
+                {g.name}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            fullWidth
+            label="Comentario"
+            value={ciComment}
+            onChange={(e) => setCiComment(e.target.value)}
+            multiline
+            rows={2}
+            placeholder="¿Cómo te fue hoy?"
+          />
+          <Button variant="outlined" color="inherit" component="label" startIcon={<PhotoCameraIcon />}>
+            {ciFile ? ciFile.name : 'Agregar foto'}
+            <input
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => setCiFile(e.target.files?.[0] ?? null)}
+            />
+          </Button>
+          {ciRoutine && (
+            <FormControlLabel
+              control={<Switch checked={ciShowRoutine} onChange={(e) => setCiShowRoutine(e.target.checked)} />}
+              label={`Mostrar mi rutina (${ciRoutine.name})`}
+            />
           )}
         </DialogContent>
         <DialogActions>
@@ -631,7 +631,7 @@ export default function FriendsPage() {
           <Button
             variant="contained"
             onClick={saveCheckin}
-            disabled={ciSaving || !ciGroup || (!ciComment.trim() && !ciFile)}
+            disabled={ciSaving || (!ciComment.trim() && !ciFile)}
           >
             {ciSaving ? 'Publicando...' : 'Publicar'}
           </Button>

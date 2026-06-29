@@ -360,15 +360,6 @@ function TrainInner() {
             )}
           </>
         )}
-
-        <Button
-          variant="outlined"
-          color="inherit"
-          href={date ? `/train/free?date=${date}` : '/train/free'}
-          sx={{ mt: routineName ? 1 : 2 }}
-        >
-          Entrenamiento libre
-        </Button>
       </Box>
 
       {selected.length > 0 && (
