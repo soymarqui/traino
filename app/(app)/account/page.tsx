@@ -10,6 +10,7 @@ import Chip from '@mui/material/Chip'
 import TextField from '@mui/material/TextField'
 import MenuItem from '@mui/material/MenuItem'
 import Avatar from '@mui/material/Avatar'
+import IconButton from '@mui/material/IconButton'
 import Alert from '@mui/material/Alert'
 import Snackbar from '@mui/material/Snackbar'
 import FormControlLabel from '@mui/material/FormControlLabel'
@@ -20,6 +21,7 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogActions from '@mui/material/DialogActions'
 import VerifiedIcon from '@mui/icons-material/Verified'
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
+import CloseIcon from '@mui/icons-material/Close'
 import { createClient } from '@/lib/supabase/client'
 import { isAdmin } from '@/lib/admin'
 import { useRouter } from 'next/navigation'
@@ -177,6 +179,19 @@ export default function AccountPage() {
     setUploadingCover(false)
   }
 
+  const removeCover = async () => {
+    setCover('')
+    await supabase.from('profiles').upsert({ id: userId, cover_url: null })
+    setSaved(true)
+  }
+
+  const removeAvatar = async () => {
+    setAvatar('')
+    await supabase.auth.updateUser({ data: { avatar_url: null } })
+    await supabase.from('profiles').upsert({ id: userId, avatar_url: null })
+    setSaved(true)
+  }
+
   const initial = (form.name || email || '?').trim()[0]?.toUpperCase() ?? '?'
 
   const set = (field: keyof typeof form, value: string) =>
@@ -304,53 +319,70 @@ export default function AccountPage() {
       </Box>
 
       <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {/* Foto de portada */}
+        {/* Encabezado: portada + foto de perfil */}
         <input ref={coverRef} type="file" accept="image/*" hidden onChange={handleCover} />
-        <Box
-          onClick={() => coverRef.current?.click()}
-          sx={{
-            position: 'relative', width: '100%', aspectRatio: '3 / 1', borderRadius: 3, overflow: 'hidden',
-            cursor: 'pointer', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-        >
-          {cover ? (
-            <Box component="img" src={cover} alt="Portada" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <Box sx={{ textAlign: 'center', color: 'text.secondary' }}>
-              <AddPhotoAlternateIcon sx={{ fontSize: 28 }} />
-              <Typography variant="caption" sx={{ display: 'block' }}>Foto de portada</Typography>
-            </Box>
-          )}
-          {uploadingCover && (
-            <Box sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Typography variant="body2" sx={{ color: '#fff' }}>Subiendo...</Typography>
-            </Box>
-          )}
-        </Box>
-
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={handlePhoto} />
-        <Card>
-          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box>
+          {/* Portada */}
+          <Box
+            onClick={() => coverRef.current?.click()}
+            sx={{
+              position: 'relative', width: '100%', aspectRatio: '16 / 6', borderRadius: 4, overflow: 'hidden',
+              cursor: 'pointer', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            {cover ? (
+              <Box component="img" src={cover} alt="Portada" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <Box sx={{ textAlign: 'center', color: 'text.hint' }}>
+                <AddPhotoAlternateIcon sx={{ fontSize: 26 }} />
+                <Typography variant="caption" sx={{ display: 'block' }}>Foto de portada</Typography>
+              </Box>
+            )}
+            {cover && (
+              <IconButton
+                size="small"
+                aria-label="Quitar portada"
+                onClick={(e) => { e.stopPropagation(); removeCover() }}
+                sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'rgba(0,0,0,0.55)', color: '#fff', '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' } }}
+              >
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            )}
+            {uploadingCover && (
+              <Box sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography variant="body2" sx={{ color: '#fff' }}>Subiendo...</Typography>
+              </Box>
+            )}
+          </Box>
+
+          {/* Avatar superpuesto + datos + acciones */}
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, mt: '-44px', px: 1 }}>
             <Avatar
               src={avatar || undefined}
               onClick={() => fileRef.current?.click()}
-              sx={{ width: 64, height: 64, cursor: 'pointer', bgcolor: 'primary.main', color: '#0A0A0A', fontWeight: 700, fontSize: '1.5rem' }}
+              sx={{ width: 88, height: 88, cursor: 'pointer', border: '4px solid', borderColor: 'background.default', bgcolor: 'primary.main', color: '#0A0A0A', fontWeight: 700, fontSize: '2rem' }}
             >
               {initial}
             </Avatar>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant="body1" sx={{ fontWeight: 600, wordBreak: 'break-all' }}>
+            <Box sx={{ flex: 1, minWidth: 0, pb: 0.5 }}>
+              <Typography variant="body2" color="text.hint" sx={{ wordBreak: 'break-all' }}>
                 {loading ? 'Cargando...' : email || 'Sin sesión'}
               </Typography>
-              <Box>
-                <Button size="small" onClick={() => fileRef.current?.click()} disabled={uploading} sx={{ mt: 0.5, ml: -0.5 }}>
-                  {uploading ? 'Subiendo...' : 'Cambiar foto'}
+              <Box sx={{ display: 'flex', gap: 1, mt: 0.5, ml: -0.5 }}>
+                <Button size="small" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                  {uploading ? 'Subiendo...' : avatar ? 'Cambiar foto' : 'Agregar foto'}
                 </Button>
+                {avatar && (
+                  <Button size="small" color="inherit" onClick={removeAvatar}>
+                    Quitar
+                  </Button>
+                )}
               </Box>
             </Box>
-          </CardContent>
-        </Card>
+          </Box>
+        </Box>
 
         {/* 1) Mi perfil */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -455,7 +487,7 @@ export default function AccountPage() {
           />
 
           <Button variant="contained" onClick={handleSave} disabled={saving || loading}>
-            {saving ? 'Guardando...' : 'Guardar perfil'}
+            {saving ? 'Guardando...' : 'Guardar cambios'}
           </Button>
         </Box>
 
