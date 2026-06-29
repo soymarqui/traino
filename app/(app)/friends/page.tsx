@@ -22,15 +22,20 @@ import SpeedDial from '@mui/material/SpeedDial'
 import SpeedDialIcon from '@mui/material/SpeedDialIcon'
 import SpeedDialAction from '@mui/material/SpeedDialAction'
 import Snackbar from '@mui/material/Snackbar'
+import Avatar from '@mui/material/Avatar'
 import SearchIcon from '@mui/icons-material/Search'
 import GroupIcon from '@mui/icons-material/Group'
 import AddIcon from '@mui/icons-material/Add'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
+import PersonIcon from '@mui/icons-material/Person'
+import ChecklistIcon from '@mui/icons-material/Checklist'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
 type Result = { id: string; name: string; handle: string | null }
+type UserResult = { id: string; handle: string | null; display_name: string | null; avatar_url: string | null }
+type ChallengeResult = { id: string; name: string; objective: string | null; group_id: string | null }
 type GroupRow = { id: string; name: string; role: string }
 type FeedPost = {
   id: string
@@ -72,8 +77,10 @@ export default function FriendsPage() {
   const [groupVisibility, setGroupVisibility] = useState<'public' | 'private'>('private')
   const [creating, setCreating] = useState(false)
 
-  // Resultados de búsqueda de comunidades públicas
+  // Resultados de búsqueda
   const [groupResults, setGroupResults] = useState<{ id: string; name: string; visibility: string; member: boolean }[]>([])
+  const [userResults, setUserResults] = useState<UserResult[]>([])
+  const [challengeResults, setChallengeResults] = useState<ChallengeResult[]>([])
 
   // Check-in
   const [checkinOpen, setCheckinOpen] = useState(false)
@@ -376,19 +383,55 @@ export default function FriendsPage() {
 
   const search = async () => {
     const term = q.trim().replace(/^@/, '')
-    const handle = term.toLowerCase()
-    if (!handle) return
+    if (!term) return
     setLoading(true)
     setSearched(true)
+    const like = `%${term}%`
 
-    // Comunidades públicas que matchean por nombre.
+    // 1) Usuarios públicos (por handle o nombre).
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, handle, display_name, avatar_url')
+      .or(`handle.ilike.${like},display_name.ilike.${like}`)
+      .eq('is_public', true)
+      .limit(15)
+    const profs = (profiles as UserResult[]) || []
+    setUserResults(profs)
+    const handleById: Record<string, string | null> = {}
+    profs.forEach((p) => (handleById[p.id] = p.handle))
+
+    // 2) Rutinas públicas: por nombre, o de los usuarios encontrados.
+    const ownerIds = profs.map((p) => p.id)
+    const routineFilters = [`name.ilike.${like}`]
+    if (ownerIds.length) routineFilters.push(`owner_id.in.(${ownerIds.join(',')})`)
+    const { data: routines } = await supabase
+      .from('routines')
+      .select('id, name, owner_id')
+      .eq('visibility', 'public')
+      .or(routineFilters.join(','))
+      .limit(15)
+    // Completar handles de dueños que no estaban entre los usuarios encontrados.
+    const missingOwners = [...new Set((routines || []).map((r: any) => r.owner_id).filter((id: string) => !(id in handleById)))]
+    if (missingOwners.length) {
+      const { data: owners } = await supabase.from('profiles').select('id, handle').in('id', missingOwners)
+      ;(owners || []).forEach((o: { id: string; handle: string | null }) => (handleById[o.id] = o.handle))
+    }
+    setResults(
+      ((routines as { id: string; name: string; owner_id: string }[]) || []).map((r) => ({
+        id: r.id,
+        name: r.name,
+        handle: handleById[r.owner_id] ?? null,
+      }))
+    )
+
+    // 3) Comunidades públicas (por nombre).
     const myIds = new Set(groups.map((g) => g.id))
     const { data: pubGroups } = await supabase
       .from('groups')
       .select('id, name, visibility')
       .eq('visibility', 'public')
-      .ilike('name', `%${term}%`)
-      .limit(10)
+      .ilike('name', like)
+      .limit(15)
     setGroupResults(
       ((pubGroups as { id: string; name: string; visibility: string }[]) || []).map((g) => ({
         ...g,
@@ -396,35 +439,15 @@ export default function FriendsPage() {
       }))
     )
 
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, handle')
-      .ilike('handle', `${handle}%`)
-      .eq('is_public', true)
-      .limit(10)
+    // 4) Desafíos activos (por nombre).
+    const { data: chs } = await supabase
+      .from('challenges')
+      .select('id, name, objective, group_id')
+      .eq('status', 'active')
+      .ilike('name', like)
+      .limit(15)
+    setChallengeResults((chs as ChallengeResult[]) || [])
 
-    const ids = (profiles || []).map((p: { id: string }) => p.id)
-    const handleById: Record<string, string | null> = {}
-    ;(profiles || []).forEach((p: { id: string; handle: string | null }) => {
-      handleById[p.id] = p.handle
-    })
-
-    let rows: Result[] = []
-    if (ids.length) {
-      const { data: routines } = await supabase
-        .from('routines')
-        .select('id, name, owner_id')
-        .in('owner_id', ids)
-        .eq('visibility', 'public')
-        .order('created_at')
-      rows = (routines || []).map((r: { id: string; name: string; owner_id: string }) => ({
-        id: r.id,
-        name: r.name,
-        handle: handleById[r.owner_id] ?? null,
-      }))
-    }
-
-    setResults(rows)
     setLoading(false)
   }
 
@@ -595,19 +618,49 @@ export default function FriendsPage() {
 
         {loading && <Typography color="text.secondary">Buscando...</Typography>}
 
-        {!loading && searched && results.length === 0 && groupResults.length === 0 && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, pt: 6, textAlign: 'center' }}>
-            <GroupIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
-            <Typography color="text.secondary">
-              No encontramos usuarios ni comunidades para esa búsqueda.
-            </Typography>
-          </Box>
-        )}
+        {!loading && searched &&
+          userResults.length === 0 && results.length === 0 && groupResults.length === 0 && challengeResults.length === 0 && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, pt: 6, textAlign: 'center' }}>
+              <SearchIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
+              <Typography color="text.secondary">
+                No encontramos nada para esa búsqueda.
+              </Typography>
+            </Box>
+          )}
 
-        {/* Comunidades públicas encontradas */}
-        {!loading && groupResults.length > 0 && (
+        {/* Usuarios */}
+        {!loading && userResults.length > 0 && (
           <>
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
+              Usuarios
+            </Typography>
+            {userResults.map((u) => (
+              <Card key={u.id} sx={{ borderLeft: '3px solid', borderColor: 'info.main' }}>
+                <CardActionArea disabled={!u.handle} onClick={() => u.handle && router.push(`/u/${u.handle}`)}>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
+                    <Avatar src={u.avatar_url || undefined} sx={{ width: 36, height: 36 }}>
+                      {(u.display_name || u.handle || '?')[0]?.toUpperCase()}
+                    </Avatar>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                        {u.display_name || (u.handle ? `@${u.handle}` : 'Usuario')}
+                      </Typography>
+                      {u.handle && (
+                        <Typography variant="caption" color="text.secondary">@{u.handle}</Typography>
+                      )}
+                    </Box>
+                    <PersonIcon sx={{ color: 'text.secondary' }} />
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            ))}
+          </>
+        )}
+
+        {/* Comunidades */}
+        {!loading && groupResults.length > 0 && (
+          <>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, mt: 1 }}>
               Comunidades
             </Typography>
             {groupResults.map((g) => (
@@ -615,12 +668,8 @@ export default function FriendsPage() {
                 <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
                   <GroupIcon sx={{ color: 'primary.main' }} />
                   <Box sx={{ flex: 1, cursor: 'pointer' }} onClick={() => router.push(`/groups/${g.id}`)}>
-                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                      {g.name}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Comunidad pública
-                    </Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 600 }}>{g.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">Comunidad pública</Typography>
                   </Box>
                   {g.member ? (
                     <Chip label="Miembro" size="small" color="primary" />
@@ -635,29 +684,56 @@ export default function FriendsPage() {
           </>
         )}
 
-        {/* Rutinas públicas de usuarios */}
+        {/* Rutinas */}
         {!loading && results.length > 0 && (
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, mt: 1 }}>
-            Rutinas de usuarios
-          </Typography>
+          <>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, mt: 1 }}>
+              Rutinas
+            </Typography>
+            {results.map((r) => (
+              <Card key={r.id} sx={{ borderLeft: '3px solid', borderColor: 'success.main' }}>
+                <CardActionArea onClick={() => router.push(`/r/${r.id}`)}>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
+                    <ChecklistIcon sx={{ color: 'success.main' }} />
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body1" sx={{ fontWeight: 600 }}>{r.name}</Typography>
+                      {r.handle && (
+                        <Typography variant="caption" color="text.secondary">por @{r.handle}</Typography>
+                      )}
+                    </Box>
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            ))}
+          </>
         )}
-        {!loading &&
-          results.map((r) => (
-            <Card key={r.id}>
-              <CardActionArea onClick={() => router.push(`/r/${r.id}`)}>
-                <CardContent>
-                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                    {r.name}
-                  </Typography>
-                  {r.handle && (
-                    <Typography variant="body2" color="text.secondary">
-                      por @{r.handle}
-                    </Typography>
-                  )}
-                </CardContent>
-              </CardActionArea>
-            </Card>
-          ))}
+
+        {/* Desafíos */}
+        {!loading && challengeResults.length > 0 && (
+          <>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, mt: 1 }}>
+              Desafíos
+            </Typography>
+            {challengeResults.map((c) => (
+              <Card key={c.id} sx={{ borderLeft: '3px solid', borderColor: 'warning.main' }}>
+                <CardActionArea
+                  disabled={!c.group_id}
+                  onClick={() => c.group_id && router.push(`/groups/${c.group_id}`)}
+                >
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
+                    <EmojiEventsIcon sx={{ color: 'warning.main' }} />
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body1" sx={{ fontWeight: 600 }}>{c.name}</Typography>
+                      {c.objective && (
+                        <Typography variant="caption" color="text.secondary">{c.objective}</Typography>
+                      )}
+                    </Box>
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            ))}
+          </>
+        )}
       </Box>
 
       {/* FAB con acciones rápidas */}
