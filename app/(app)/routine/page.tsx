@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
@@ -23,9 +21,10 @@ import LinkOffIcon from '@mui/icons-material/LinkOff'
 import LockIcon from '@mui/icons-material/Lock'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import PublicIcon from '@mui/icons-material/Public'
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt'
 import { createClient } from '@/lib/supabase/client'
 import { duplicateRoutine } from '@/lib/routines'
-import { gradientBorderSx } from '@/lib/theme'
+import { accentGradient } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 import SwipeableRow from '@/components/SwipeableRow'
 
@@ -43,6 +42,8 @@ type RoutineRow = {
   name: string
   visibility: Visibility
   owner_id: string
+  description?: string | null
+  cover_url?: string | null
   routine_exercises: { count: number }[]
   handle?: string | null
 }
@@ -52,6 +53,8 @@ export default function RoutinesPage() {
   const [subscribed, setSubscribed] = useState<RoutineRow[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
+  const [likes, setLikes] = useState<Record<string, number>>({})
+  const [followers, setFollowers] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
   const [name, setName] = useState('')
@@ -71,30 +74,46 @@ export default function RoutinesPage() {
     setUserId(user?.id ?? null)
 
     const [{ data: ownedData }, { data: profile }, { data: subs }] = await Promise.all([
-      supabase.from('routines').select('id, name, visibility, owner_id, routine_exercises(count)').order('created_at'),
+      supabase.from('routines').select('id, name, visibility, owner_id, description, cover_url, routine_exercises(count)').order('created_at'),
       user ? supabase.from('profiles').select('active_routine_id').eq('id', user.id).maybeSingle() : Promise.resolve({ data: null }),
       user ? supabase.from('routine_subscriptions').select('routine_id').eq('user_id', user.id) : Promise.resolve({ data: [] }),
     ])
 
-    setOwned((ownedData as RoutineRow[]) || [])
+    const ownedRoutines = (ownedData as RoutineRow[]) || []
+    setOwned(ownedRoutines)
     setActiveId((profile as { active_routine_id: string | null } | null)?.active_routine_id ?? null)
 
     // Rutinas suscritas (de otros, públicas) + handle del autor.
     const subIds = (subs as { routine_id: string }[] | null)?.map((s) => s.routine_id) ?? []
+    let subRoutinesList: RoutineRow[] = []
     if (subIds.length) {
       const { data: subRoutines } = await supabase
         .from('routines')
-        .select('id, name, visibility, owner_id, routine_exercises(count)')
+        .select('id, name, visibility, owner_id, description, cover_url, routine_exercises(count)')
         .in('id', subIds)
       const ownerIds = [...new Set((subRoutines || []).map((r: { owner_id: string }) => r.owner_id))]
       const { data: profs } = await supabase.from('profiles').select('id, handle').in('id', ownerIds)
       const handleById: Record<string, string | null> = {}
       ;(profs || []).forEach((p: { id: string; handle: string | null }) => (handleById[p.id] = p.handle))
-      setSubscribed(
-        (subRoutines as RoutineRow[] || []).map((r) => ({ ...r, handle: handleById[r.owner_id] ?? null }))
-      )
+      subRoutinesList = (subRoutines as RoutineRow[] || []).map((r) => ({ ...r, handle: handleById[r.owner_id] ?? null }))
+      setSubscribed(subRoutinesList)
     } else {
       setSubscribed([])
+    }
+
+    // Contadores de likes 💪 y seguidores por rutina.
+    const allIds = [...ownedRoutines.map((r) => r.id), ...subRoutinesList.map((r) => r.id)]
+    if (allIds.length) {
+      const [{ data: rl }, { data: rs }] = await Promise.all([
+        supabase.from('routine_likes').select('routine_id').in('routine_id', allIds),
+        supabase.from('routine_subscriptions').select('routine_id').in('routine_id', allIds),
+      ])
+      const likeMap: Record<string, number> = {}
+      ;(rl || []).forEach((x: { routine_id: string }) => (likeMap[x.routine_id] = (likeMap[x.routine_id] ?? 0) + 1))
+      const folMap: Record<string, number> = {}
+      ;(rs || []).forEach((x: { routine_id: string }) => (folMap[x.routine_id] = (folMap[x.routine_id] ?? 0) + 1))
+      setLikes(likeMap)
+      setFollowers(folMap)
     }
     setLoading(false)
   }
@@ -189,23 +208,80 @@ export default function RoutinesPage() {
               ]
         }
       >
-        <Card sx={isActive ? gradientBorderSx(18) : undefined}>
-          <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box sx={{ flex: 1 }}>
+        <Box
+          sx={{
+            borderRadius: '18px',
+            p: isActive ? '2px' : 0,
+            background: isActive ? (t) => accentGradient(t.palette.mode) : undefined,
+          }}
+        >
+          <Box
+            sx={{
+              position: 'relative',
+              borderRadius: isActive ? '16px' : '18px',
+              overflow: 'hidden',
+              minHeight: 132,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-end',
+              bgcolor: 'background.paper',
+              border: isActive ? 'none' : '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            {r.cover_url && (
+              <Box component="img" src={r.cover_url} alt="" sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+            )}
+            {/* Overlay para legibilidad sobre la portada */}
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                background: r.cover_url
+                  ? 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.15) 100%)'
+                  : 'transparent',
+              }}
+            />
+            <Box sx={{ position: 'relative', p: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: r.cover_url ? '#fff' : 'text.primary' }}>
                   {r.name}
                 </Typography>
                 {!isSub && <VisibilityIcon v={r.visibility} />}
                 {isActive && <Chip label="Activa" size="small" color="primary" />}
               </Box>
-              <Typography variant="body2" color="text.secondary">
-                {r.routine_exercises?.[0]?.count ?? 0} ejercicios
-                {isSub && r.handle ? ` · por @${r.handle}` : ''}
-              </Typography>
+
+              {r.description && (
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: r.cover_url ? 'rgba(255,255,255,0.85)' : 'text.secondary',
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                  }}
+                >
+                  {r.description}
+                </Typography>
+              )}
+
+              <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', mt: 0.5 }}>
+                <Typography variant="body2" sx={{ color: r.cover_url ? 'rgba(255,255,255,0.75)' : 'text.secondary' }}>
+                  {r.routine_exercises?.[0]?.count ?? 0} ejercicios
+                  {isSub && r.handle ? ` · por @${r.handle}` : ''}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, color: r.cover_url ? 'rgba(255,255,255,0.9)' : 'text.secondary' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                    <span style={{ fontSize: '0.95rem' }}>💪</span>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{likes[r.id] ?? 0}</Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                    <PeopleAltIcon sx={{ fontSize: '1rem' }} />
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{followers[r.id] ?? 0}</Typography>
+                  </Box>
+                </Box>
+              </Box>
             </Box>
-          </CardContent>
-        </Card>
+          </Box>
+        </Box>
       </SwipeableRow>
     )
   }

@@ -71,7 +71,7 @@ export default function SwipeableRow({
   }
 
   return (
-    <Box sx={{ position: 'relative', overflow: 'hidden', borderRadius: 2 }}>
+    <Box sx={{ position: 'relative', overflow: 'hidden', borderRadius: '18px' }}>
       {/* Acción leading (izquierda) */}
       {leading && (
         <Box

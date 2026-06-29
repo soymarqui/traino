@@ -14,6 +14,7 @@ import AddIcon from '@mui/icons-material/Add'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ShareIcon from '@mui/icons-material/Share'
 import VerifiedIcon from '@mui/icons-material/Verified'
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt'
 import { createClient } from '@/lib/supabase/client'
 import { Equipment, Routine, RoutineDay, RoutineExercise, RoutineExerciseSet } from '@/types/database'
 import { useRouter, useParams } from 'next/navigation'
@@ -52,6 +53,9 @@ export default function PublicRoutinePage() {
   const [items, setItems] = useState<RoutineExercise[]>([])
   const [userId, setUserId] = useState<string | null>(null)
   const [subscribed, setSubscribed] = useState(false)
+  const [liked, setLiked] = useState(false)
+  const [likeCount, setLikeCount] = useState(0)
+  const [followerCount, setFollowerCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [scrollY, setScrollY] = useState(0)
@@ -94,7 +98,28 @@ export default function PublicRoutinePage() {
     setDays((d as RoutineDay[]) || [])
     setItems((ex as RoutineExercise[]) || [])
     setSubscribed(!!sub)
+
+    // Likes 💪 y seguidores.
+    const [{ data: rl }, { count: subsCount }] = await Promise.all([
+      supabase.from('routine_likes').select('user_id').eq('routine_id', routineId),
+      supabase.from('routine_subscriptions').select('id', { count: 'exact', head: true }).eq('routine_id', routineId),
+    ])
+    const likeRows = (rl as { user_id: string }[]) || []
+    setLikeCount(likeRows.length)
+    setLiked(!!user && likeRows.some((x) => x.user_id === user.id))
+    setFollowerCount(subsCount ?? 0)
     setLoading(false)
+  }
+
+  const toggleLike = async () => {
+    if (!userId) return
+    setLiked((v) => !v)
+    setLikeCount((c) => c + (liked ? -1 : 1))
+    if (liked) {
+      await supabase.from('routine_likes').delete().eq('routine_id', routineId).eq('user_id', userId)
+    } else {
+      await supabase.from('routine_likes').upsert({ routine_id: routineId, user_id: userId }, { onConflict: 'routine_id,user_id' })
+    }
   }
 
   const isOwner = userId && routine && routine.owner_id === userId
@@ -105,9 +130,11 @@ export default function PublicRoutinePage() {
     setBusy(true)
     if (subscribed) {
       setSubscribed(false)
+      setFollowerCount((c) => Math.max(0, c - 1))
       await supabase.from('routine_subscriptions').delete().eq('user_id', userId).eq('routine_id', routineId)
     } else {
       setSubscribed(true)
+      setFollowerCount((c) => c + 1)
       await supabase.from('routine_subscriptions').insert({ user_id: userId, routine_id: routineId })
       setSnack('¡Agregada a tus rutinas!')
     }
@@ -210,6 +237,24 @@ export default function PublicRoutinePage() {
                 {routine.description}
               </Typography>
             )}
+
+            {/* Contadores */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box
+                onClick={isOwner ? undefined : toggleLike}
+                sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: isOwner ? 'default' : 'pointer' }}
+              >
+                <span style={{ fontSize: '1.25rem', filter: liked ? 'none' : 'grayscale(1)', opacity: liked ? 1 : 0.6 }}>💪</span>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: liked ? 'primary.main' : 'text.secondary' }}>
+                  {likeCount}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
+                <PeopleAltIcon sx={{ fontSize: '1.15rem' }} />
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>{followerCount}</Typography>
+                <Typography variant="body2" color="text.secondary">siguiendo</Typography>
+              </Box>
+            </Box>
 
             {/* Acciones */}
             {!isOwner ? (
