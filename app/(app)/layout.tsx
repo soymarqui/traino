@@ -206,6 +206,26 @@ export default function AppLayout({
         <Box sx={{ maxWidth: 600, mx: 'auto', width: '100%' }}>{children}</Box>
       </RestTimerProvider>
 
+      {/* Capa de blur con gradiente detrás del nav: difumina el contenido que
+          pasa por atrás y se desvanece hacia arriba. */}
+      <Box
+        sx={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 'calc(120px + env(safe-area-inset-bottom))',
+          zIndex: 9,
+          pointerEvents: 'none',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          maskImage: 'linear-gradient(to top, #000 55%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to top, #000 55%, transparent 100%)',
+          background: (t) =>
+            `linear-gradient(to top, ${alpha(t.palette.background.default, 0.6)}, ${alpha(t.palette.background.default, 0)})`,
+        }}
+      />
+
       {/* Navegación inferior flotante (pill) */}
       <Paper
         elevation={0}
