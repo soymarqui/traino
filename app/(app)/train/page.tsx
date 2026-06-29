@@ -243,6 +243,15 @@ function TrainInner() {
                 </Card>
               )
             })}
+
+            <Button
+              variant="outlined"
+              color="primary"
+              href={date ? `/train/custom?date=${date}` : '/train/custom'}
+              sx={{ mt: 1 }}
+            >
+              Armar entrenamiento custom
+            </Button>
           </>
         )}
 
@@ -250,7 +259,7 @@ function TrainInner() {
           variant="outlined"
           color="inherit"
           href={date ? `/train/free?date=${date}` : '/train/free'}
-          sx={{ mt: 2 }}
+          sx={{ mt: routineName ? 0 : 2 }}
         >
           Entrenamiento libre
         </Button>
