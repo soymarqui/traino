@@ -317,6 +317,11 @@ export default function WorkoutPage() {
     setLastWeight(last)
   }
 
+  // Marca actividad reciente en el entrenamiento (para el chequeo de inactividad).
+  const touchWorkout = () => {
+    supabase.from('workouts').update({ last_activity_at: new Date().toISOString() }).eq('id', workoutId).then(() => {})
+  }
+
   const openMark = (set: SetRow, ex: ExerciseWithSets) => {
     const exId = ex.id
     setMarking({ set, exName: ex.name, unitLabel: unitShort(ex.unit, ex.distance_unit), unit: ex.unit, distanceUnit: ex.distance_unit })
@@ -380,6 +385,7 @@ export default function WorkoutPage() {
       .from('sets')
       .update({ weight: w, feeling, completed: true, reps_actual: r })
       .eq('id', setId)
+    touchWorkout()
     // Arrancar el descanso.
     startRest(marking.set.rest_seconds ?? 60)
   }
@@ -409,6 +415,7 @@ export default function WorkoutPage() {
       .from('sets')
       .update({ completed: next })
       .in('id', ex.sets.map((s) => s.id))
+    touchWorkout()
   }
 
   // Buscar variantes: ejercicios activos del mismo músculo principal.
@@ -568,6 +575,7 @@ export default function WorkoutPage() {
             : e
         )
       )
+      touchWorkout()
     }
   }
 

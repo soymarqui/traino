@@ -1,6 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import Button from '@mui/material/Button'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
 import Box from '@mui/material/Box'
 import AppBar from '@mui/material/AppBar'
 import Toolbar from '@mui/material/Toolbar'
@@ -70,7 +75,44 @@ export default function AppLayout({
   const [handle, setHandle] = useState<string | null>(null)
   const [unread, setUnread] = useState(0)
   const [activeWorkoutId, setActiveWorkoutId] = useState<string | null>(null)
+  const [inactivePrompt, setInactivePrompt] = useState<{ id: string; startedAt: string; lastActivityAt: string } | null>(null)
+  const [countdown, setCountdown] = useState(10)
+  const inactiveHandled = useRef(false)
   const supabase = createClient()
+
+  // Cuenta regresiva del aviso de inactividad: si llega a 0, se finaliza solo.
+  useEffect(() => {
+    if (!inactivePrompt) return
+    if (countdown <= 0) {
+      finishStale()
+      return
+    }
+    const t = setTimeout(() => setCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inactivePrompt, countdown])
+
+  const finishStale = async () => {
+    const p = inactivePrompt
+    setInactivePrompt(null)
+    inactiveHandled.current = false
+    if (!p) return
+    // Finaliza el entrenamiento SIN publicar check-in. Duración hasta la última actividad.
+    const durationSec = Math.max(0, Math.round((new Date(p.lastActivityAt).getTime() - new Date(p.startedAt).getTime()) / 1000))
+    await supabase
+      .from('workouts')
+      .update({ finished_at: p.lastActivityAt, duration_seconds: durationSec })
+      .eq('id', p.id)
+    setActiveWorkoutId(null)
+  }
+
+  const keepTraining = async () => {
+    const p = inactivePrompt
+    setInactivePrompt(null)
+    inactiveHandled.current = false
+    if (!p) return
+    await supabase.from('workouts').update({ last_activity_at: new Date().toISOString() }).eq('id', p.id)
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -85,14 +127,24 @@ export default function AppLayout({
       const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
       const { data: active } = await supabase
         .from('workouts')
-        .select('id')
+        .select('id, started_at, last_activity_at')
         .eq('user_id', user.id)
         .is('finished_at', null)
         .gte('started_at', since)
         .order('started_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-      setActiveWorkoutId((active as { id: string } | null)?.id ?? null)
+      const aw = active as { id: string; started_at: string; last_activity_at: string } | null
+      setActiveWorkoutId(aw?.id ?? null)
+      // ¿Inactividad > 30 min? Preguntar si sigue entrenando.
+      if (aw && !inactiveHandled.current) {
+        const last = new Date(aw.last_activity_at).getTime()
+        if (Date.now() - last > 30 * 60 * 1000) {
+          inactiveHandled.current = true
+          setInactivePrompt({ id: aw.id, startedAt: aw.started_at, lastActivityAt: aw.last_activity_at })
+          setCountdown(10)
+        }
+      }
       // Notificaciones sin leer (para el indicador de la campana).
       try {
         const notifs = await fetchNotifications(supabase, user.id)
@@ -232,6 +284,21 @@ export default function AppLayout({
       <RestTimerProvider>
         <Box sx={{ maxWidth: 600, mx: 'auto', width: '100%' }}>{children}</Box>
       </RestTimerProvider>
+
+      {/* ¿Seguís entrenando? (inactividad > 30 min) */}
+      <Dialog open={!!inactivePrompt} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>¿Seguís entrenando? 🏋️</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            No detectamos actividad hace un rato. Si no respondés, damos por finalizado el
+            entrenamiento en <b>{countdown}s</b> (no se publica ningún check-in).
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={finishStale}>Finalizar</Button>
+          <Button variant="contained" onClick={keepTraining}>Sí, sigo</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Botón flotante de "entrenamiento activo" (volver a la sesión en curso) */}
       {activeWorkoutId && pathname !== `/train/${activeWorkoutId}` && (
