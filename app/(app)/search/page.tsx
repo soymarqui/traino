@@ -40,6 +40,7 @@ export default function SearchPage() {
   const [results, setResults] = useState<Result[]>([])
   const [groupResults, setGroupResults] = useState<GroupResult[]>([])
   const [challengeResults, setChallengeResults] = useState<ChallengeResult[]>([])
+  const [filter, setFilter] = useState<'todo' | 'usuarios' | 'grupos' | 'rutinas' | 'desafios'>('todo')
   const [snack, setSnack] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
@@ -111,16 +112,32 @@ export default function SearchPage() {
     if (!term) return
     setLoading(true)
     setSearched(true)
+    setFilter('todo')
     const like = `%${term}%`
+    // Búsqueda menos literal: divido en palabras y matcheo cada una (nombre/apellido
+    // en cualquier orden) + un patrón con comodín entre palabras ("juan perez" → %juan%perez%").
+    const tokens = term.split(/\s+/).filter(Boolean)
+    const wild = `%${tokens.join('%')}%`
+    const lower = term.toLowerCase()
 
     // 1) Usuarios públicos.
+    const userOr = [`handle.ilike.${like}`, `display_name.ilike.${like}`, `display_name.ilike.${wild}`]
+    tokens.forEach((t) => {
+      userOr.push(`display_name.ilike.%${t}%`)
+      userOr.push(`handle.ilike.%${t}%`)
+    })
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, handle, display_name, avatar_url, is_certified')
-      .or(`handle.ilike.${like},display_name.ilike.${like}`)
+      .or(userOr.join(','))
       .eq('is_public', true)
-      .limit(15)
-    const profs = (profiles as UserResult[]) || []
+      .limit(20)
+    const profs = ((profiles as UserResult[]) || []).slice().sort((a, b) => {
+      const am = (a.display_name || '').toLowerCase().includes(lower) || (a.handle || '').toLowerCase().includes(lower)
+      const bm = (b.display_name || '').toLowerCase().includes(lower) || (b.handle || '').toLowerCase().includes(lower)
+      if (am !== bm) return am ? -1 : 1
+      return Number(b.is_certified) - Number(a.is_certified)
+    })
     setUserResults(profs)
     const handleById: Record<string, string | null> = {}
     const certifiedById: Record<string, boolean> = {}
@@ -131,14 +148,14 @@ export default function SearchPage() {
 
     // 2) Rutinas públicas (por nombre o de los usuarios encontrados).
     const ownerIds = profs.map((p) => p.id)
-    const routineFilters = [`name.ilike.${like}`]
+    const routineFilters = [`name.ilike.${like}`, `name.ilike.${wild}`]
     if (ownerIds.length) routineFilters.push(`owner_id.in.(${ownerIds.join(',')})`)
     const { data: routines } = await supabase
       .from('routines')
       .select('id, name, owner_id, description, cover_url')
       .eq('visibility', 'public')
       .or(routineFilters.join(','))
-      .limit(15)
+      .limit(20)
     const missingOwners = [...new Set((routines || []).map((r: any) => r.owner_id).filter((id: string) => !(id in handleById)))]
     if (missingOwners.length) {
       const { data: owners } = await supabase.from('profiles').select('id, handle, is_certified').in('id', missingOwners)
@@ -166,8 +183,8 @@ export default function SearchPage() {
       .from('groups')
       .select('id, name, visibility')
       .eq('visibility', 'public')
-      .ilike('name', like)
-      .limit(15)
+      .or(`name.ilike.${like},name.ilike.${wild}`)
+      .limit(20)
     setGroupResults(
       ((pubGroups as { id: string; name: string; visibility: string }[]) || []).map((g) => ({
         ...g,
@@ -180,8 +197,8 @@ export default function SearchPage() {
       .from('challenges')
       .select('id, name, objective, group_id')
       .eq('status', 'active')
-      .ilike('name', like)
-      .limit(15)
+      .or(`name.ilike.${like},name.ilike.${wild}`)
+      .limit(20)
     setChallengeResults((chs as ChallengeResult[]) || [])
 
     setLoading(false)
@@ -189,6 +206,126 @@ export default function SearchPage() {
 
   const nothing =
     searched && userResults.length === 0 && results.length === 0 && groupResults.length === 0 && challengeResults.length === 0
+
+  const SectionHeader = ({ label }: { label: string }) => (
+    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, mt: 1 }}>
+      {label}
+    </Typography>
+  )
+
+  const MoreBtn = ({ label, target }: { label: string; target: typeof filter }) => (
+    <Button size="small" onClick={() => setFilter(target)} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}>
+      {label} →
+    </Button>
+  )
+
+  const renderUser = (u: UserResult) => (
+    <Card key={u.id} sx={{ borderLeft: '3px solid', borderColor: 'info.main' }}>
+      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
+        <Box
+          sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, cursor: u.handle ? 'pointer' : 'default', minWidth: 0 }}
+          onClick={() => u.handle && router.push(`/u/${u.handle}`)}
+        >
+          <UserAvatar src={u.avatar_url} name={u.display_name || u.handle} size={36} />
+          <Box sx={{ minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                {u.display_name || (u.handle ? `@${u.handle}` : 'Usuario')}
+              </Typography>
+              {u.is_certified && <VerifiedIcon sx={{ color: 'primary.main', fontSize: 16 }} />}
+            </Box>
+            {u.handle && <Typography variant="caption" color="text.secondary">@{u.handle}</Typography>}
+          </Box>
+        </Box>
+        {friendBy[u.id] === 'friends' && <Chip label="Amigos" size="small" color="primary" />}
+        {friendBy[u.id] === 'sent' && <Chip label="Pendiente" size="small" />}
+        {friendBy[u.id] === 'received' && (
+          <Button size="small" variant="contained" startIcon={<PersonAddIcon />} onClick={() => addFriend(u.id)}>
+            Aceptar
+          </Button>
+        )}
+        {!friendBy[u.id] && (
+          <Button size="small" variant="outlined" startIcon={<PersonAddIcon />} onClick={() => addFriend(u.id)}>
+            Agregar
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  )
+
+  const renderGroup = (g: GroupResult) => (
+    <Card key={g.id} sx={{ borderLeft: '3px solid', borderColor: 'primary.main' }}>
+      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
+        <GroupIcon sx={{ color: 'primary.main' }} />
+        <Box sx={{ flex: 1, cursor: 'pointer' }} onClick={() => router.push(`/groups/${g.id}`)}>
+          <Typography variant="body1" sx={{ fontWeight: 600 }}>{g.name}</Typography>
+          <Typography variant="caption" color="text.secondary">Comunidad pública</Typography>
+        </Box>
+        {g.member ? (
+          <Chip label="Miembro" size="small" color="primary" />
+        ) : (
+          <Button size="small" variant="outlined" onClick={() => joinGroup(g.id)}>Unirme</Button>
+        )}
+      </CardContent>
+    </Card>
+  )
+
+  const renderRoutine = (r: Result) => (
+    <Card key={r.id} sx={r.certified ? gradientBorderSx(18) : { borderLeft: '3px solid', borderColor: 'success.main' }}>
+      <CardActionArea onClick={() => router.push(`/r/${r.id}`)}>
+        {r.cover_url && (
+          <Box component="img" src={r.cover_url} alt="" sx={{ width: '100%', height: 120, objectFit: 'cover', display: 'block' }} />
+        )}
+        <CardContent sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, py: '12px !important' }}>
+          <ChecklistIcon sx={{ color: 'success.main', mt: 0.3 }} />
+          <Box sx={{ flex: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="body1" sx={{ fontWeight: 600 }}>{r.name}</Typography>
+              {r.certified && <Chip icon={<VerifiedIcon />} label="Certificada" size="small" color="primary" sx={{ height: 20 }} />}
+            </Box>
+            {r.handle && <Typography variant="caption" color="text.secondary">por @{r.handle}</Typography>}
+            {r.description && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mt: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+              >
+                {r.description}
+              </Typography>
+            )}
+          </Box>
+        </CardContent>
+      </CardActionArea>
+    </Card>
+  )
+
+  const renderChallenge = (c: ChallengeResult) => (
+    <Card key={c.id} sx={{ borderLeft: '3px solid', borderColor: 'warning.main' }}>
+      <CardActionArea disabled={!c.group_id} onClick={() => c.group_id && router.push(`/groups/${c.group_id}`)}>
+        <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
+          <EmojiEventsIcon sx={{ color: 'warning.main' }} />
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>{c.name}</Typography>
+            {c.objective && <Typography variant="caption" color="text.secondary">{c.objective}</Typography>}
+          </Box>
+        </CardContent>
+      </CardActionArea>
+    </Card>
+  )
+
+  const cap = filter === 'todo' ? 5 : 99
+  const showUsers = (filter === 'todo' || filter === 'usuarios') && userResults.length > 0
+  const showGroups = (filter === 'todo' || filter === 'grupos') && groupResults.length > 0
+  const showRoutines = (filter === 'todo' || filter === 'rutinas') && results.length > 0
+  const showChallenges = (filter === 'todo' || filter === 'desafios') && challengeResults.length > 0
+
+  const filterChips: { key: typeof filter; label: string }[] = [
+    { key: 'todo', label: 'Todo' },
+    ...(userResults.length ? [{ key: 'usuarios' as const, label: `Usuarios (${userResults.length})` }] : []),
+    ...(groupResults.length ? [{ key: 'grupos' as const, label: `Comunidades (${groupResults.length})` }] : []),
+    ...(results.length ? [{ key: 'rutinas' as const, label: `Rutinas (${results.length})` }] : []),
+    ...(challengeResults.length ? [{ key: 'desafios' as const, label: `Desafíos (${challengeResults.length})` }] : []),
+  ]
 
   return (
     <Box sx={{ minHeight: '100vh', pb: 12 }}>
@@ -232,129 +369,55 @@ export default function SearchPage() {
           </Box>
         )}
 
-        {/* Usuarios */}
-        {!loading && userResults.length > 0 && (
-          <>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>
-              Usuarios
-            </Typography>
-            {userResults.map((u) => (
-              <Card key={u.id} sx={{ borderLeft: '3px solid', borderColor: 'info.main' }}>
-                <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
-                  <Box
-                    sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, cursor: u.handle ? 'pointer' : 'default', minWidth: 0 }}
-                    onClick={() => u.handle && router.push(`/u/${u.handle}`)}
-                  >
-                    <UserAvatar src={u.avatar_url} name={u.display_name || u.handle} size={36} />
-                    <Box sx={{ minWidth: 0 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                          {u.display_name || (u.handle ? `@${u.handle}` : 'Usuario')}
-                        </Typography>
-                        {u.is_certified && <VerifiedIcon sx={{ color: 'primary.main', fontSize: 16 }} />}
-                      </Box>
-                      {u.handle && <Typography variant="caption" color="text.secondary">@{u.handle}</Typography>}
-                    </Box>
-                  </Box>
-                  {friendBy[u.id] === 'friends' && <Chip label="Amigos" size="small" color="primary" />}
-                  {friendBy[u.id] === 'sent' && <Chip label="Pendiente" size="small" />}
-                  {friendBy[u.id] === 'received' && (
-                    <Button size="small" variant="contained" startIcon={<PersonAddIcon />} onClick={() => addFriend(u.id)}>
-                      Aceptar
-                    </Button>
-                  )}
-                  {!friendBy[u.id] && (
-                    <Button size="small" variant="outlined" startIcon={<PersonAddIcon />} onClick={() => addFriend(u.id)}>
-                      Agregar
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
+        {/* Filtros */}
+        {!loading && searched && !nothing && (
+          <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5, '&::-webkit-scrollbar': { display: 'none' } }}>
+            {filterChips.map((f) => (
+              <Chip
+                key={f.key}
+                label={f.label}
+                onClick={() => setFilter(f.key)}
+                color={filter === f.key ? 'primary' : 'default'}
+                variant={filter === f.key ? 'filled' : 'outlined'}
+                sx={{ flexShrink: 0 }}
+              />
             ))}
+          </Box>
+        )}
+
+        {/* Usuarios */}
+        {!loading && showUsers && (
+          <>
+            <SectionHeader label="Usuarios" />
+            {userResults.slice(0, cap).map(renderUser)}
+            {filter === 'todo' && userResults.length > cap && <MoreBtn label="Ver más usuarios" target="usuarios" />}
           </>
         )}
 
         {/* Comunidades */}
-        {!loading && groupResults.length > 0 && (
+        {!loading && showGroups && (
           <>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, mt: 1 }}>
-              Comunidades
-            </Typography>
-            {groupResults.map((g) => (
-              <Card key={g.id} sx={{ borderLeft: '3px solid', borderColor: 'primary.main' }}>
-                <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
-                  <GroupIcon sx={{ color: 'primary.main' }} />
-                  <Box sx={{ flex: 1, cursor: 'pointer' }} onClick={() => router.push(`/groups/${g.id}`)}>
-                    <Typography variant="body1" sx={{ fontWeight: 600 }}>{g.name}</Typography>
-                    <Typography variant="caption" color="text.secondary">Comunidad pública</Typography>
-                  </Box>
-                  {g.member ? (
-                    <Chip label="Miembro" size="small" color="primary" />
-                  ) : (
-                    <Button size="small" variant="outlined" onClick={() => joinGroup(g.id)}>Unirme</Button>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+            <SectionHeader label="Comunidades" />
+            {groupResults.slice(0, cap).map(renderGroup)}
+            {filter === 'todo' && groupResults.length > cap && <MoreBtn label="Ver más comunidades" target="grupos" />}
           </>
         )}
 
         {/* Rutinas */}
-        {!loading && results.length > 0 && (
+        {!loading && showRoutines && (
           <>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, mt: 1 }}>
-              Rutinas
-            </Typography>
-            {results.map((r) => (
-              <Card key={r.id} sx={r.certified ? gradientBorderSx(18) : { borderLeft: '3px solid', borderColor: 'success.main' }}>
-                <CardActionArea onClick={() => router.push(`/r/${r.id}`)}>
-                  {r.cover_url && (
-                    <Box component="img" src={r.cover_url} alt="" sx={{ width: '100%', height: 120, objectFit: 'cover', display: 'block' }} />
-                  )}
-                  <CardContent sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, py: '12px !important' }}>
-                    <ChecklistIcon sx={{ color: 'success.main', mt: 0.3 }} />
-                    <Box sx={{ flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Typography variant="body1" sx={{ fontWeight: 600 }}>{r.name}</Typography>
-                        {r.certified && <Chip icon={<VerifiedIcon />} label="Certificada" size="small" color="primary" sx={{ height: 20 }} />}
-                      </Box>
-                      {r.handle && <Typography variant="caption" color="text.secondary">por @{r.handle}</Typography>}
-                      {r.description && (
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ mt: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                        >
-                          {r.description}
-                        </Typography>
-                      )}
-                    </Box>
-                  </CardContent>
-                </CardActionArea>
-              </Card>
-            ))}
+            <SectionHeader label="Rutinas" />
+            {results.slice(0, cap).map(renderRoutine)}
+            {filter === 'todo' && results.length > cap && <MoreBtn label="Ver más rutinas" target="rutinas" />}
           </>
         )}
 
         {/* Desafíos */}
-        {!loading && challengeResults.length > 0 && (
+        {!loading && showChallenges && (
           <>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, mt: 1 }}>
-              Desafíos
-            </Typography>
-            {challengeResults.map((c) => (
-              <Card key={c.id} sx={{ borderLeft: '3px solid', borderColor: 'warning.main' }}>
-                <CardActionArea disabled={!c.group_id} onClick={() => c.group_id && router.push(`/groups/${c.group_id}`)}>
-                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: '12px !important' }}>
-                    <EmojiEventsIcon sx={{ color: 'warning.main' }} />
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="body1" sx={{ fontWeight: 600 }}>{c.name}</Typography>
-                      {c.objective && <Typography variant="caption" color="text.secondary">{c.objective}</Typography>}
-                    </Box>
-                  </CardContent>
-                </CardActionArea>
-              </Card>
-            ))}
+            <SectionHeader label="Desafíos" />
+            {challengeResults.slice(0, cap).map(renderChallenge)}
+            {filter === 'todo' && challengeResults.length > cap && <MoreBtn label="Ver más desafíos" target="desafios" />}
           </>
         )}
       </Box>
