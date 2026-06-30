@@ -177,6 +177,15 @@ export default function AppLayout({
       .filter((v) => pathname === v || pathname.startsWith(v + '/'))
       .sort((a, b) => b.length - a.length)[0] ?? false
 
+  // Navegación entre tabs con dirección: desliza hacia un lado u otro según el
+  // orden de los tabs, para que se sienta como una app nativa.
+  const goTab = (value: string) => {
+    const from = BOTTOM_TABS.findIndex((t) => t.value === activeBottom)
+    const to = BOTTOM_TABS.findIndex((t) => t.value === value)
+    const type = to > from ? 'nav-forward' : to < from ? 'nav-back' : undefined
+    router.push(value, type ? ({ transitionTypes: [type] } as never) : undefined)
+  }
+
   const initial = initialOf(user)
 
   return (
@@ -363,7 +372,7 @@ export default function AppLayout({
       >
         <BottomNavigation
           value={activeBottom}
-          onChange={(_, value) => router.push(value)}
+          onChange={(_, value) => goTab(value)}
           sx={{
             bgcolor: 'transparent',
             height: 64,

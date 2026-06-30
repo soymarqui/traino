@@ -24,3 +24,78 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ───────────── Transiciones de página (View Transitions API) ───────────── */
+
+/* Crossfade suave + leve subida y desenfoque (navegación general). */
+::view-transition-old(.cross) {
+  animation: 160ms ease-in both vt-fade reverse;
+}
+::view-transition-new(.cross) {
+  animation:
+    240ms ease-out 120ms both vt-fade,
+    320ms cubic-bezier(0.22, 1, 0.36, 1) both vt-rise;
+}
+
+/* Deslizamiento direccional entre tabs. */
+::view-transition-old(.nav-forward) {
+  --vt-slide: -64px;
+  animation:
+    150ms ease-in both vt-fade reverse,
+    380ms cubic-bezier(0.22, 1, 0.36, 1) both vt-slide reverse;
+}
+::view-transition-new(.nav-forward) {
+  --vt-slide: 64px;
+  animation:
+    220ms ease-out 130ms both vt-fade,
+    380ms cubic-bezier(0.22, 1, 0.36, 1) both vt-slide;
+}
+::view-transition-old(.nav-back) {
+  --vt-slide: 64px;
+  animation:
+    150ms ease-in both vt-fade reverse,
+    380ms cubic-bezier(0.22, 1, 0.36, 1) both vt-slide reverse;
+}
+::view-transition-new(.nav-back) {
+  --vt-slide: -64px;
+  animation:
+    220ms ease-out 130ms both vt-fade,
+    380ms cubic-bezier(0.22, 1, 0.36, 1) both vt-slide;
+}
+
+@keyframes vt-fade {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@keyframes vt-rise {
+  from {
+    transform: translateY(12px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes vt-slide {
+  from {
+    transform: translateX(var(--vt-slide));
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* Respetar a quien pide menos movimiento. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+  }
+}
