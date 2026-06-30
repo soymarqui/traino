@@ -276,27 +276,34 @@ export default function ExerciseDetailPage() {
           }}
         />
         {!loading && exercise && (
-          <Typography
-            variant="h4"
+          <Box
             sx={{
-              ...displayTitleSx,
-              position: 'absolute', left: 24, right: 24, bottom: 24, color: '#fff',
-              pointerEvents: 'none',
-              textShadow: '0 2px 12px rgba(0,0,0,0.6)',
-              // Parallax: sube y se desvanece al scrollear.
-              transform: `translateY(${-scrollY * 0.35}px)`,
-              opacity: Math.max(0, 1 - scrollY / 240),
+              position: 'absolute', left: 0, right: 0, bottom: 24,
+              display: 'flex', justifyContent: 'center', pointerEvents: 'none',
             }}
           >
-            {exercise.name}
-          </Typography>
+            <Typography
+              variant="h4"
+              sx={{
+                ...displayTitleSx,
+                // Alineado con la columna de contenido (maxWidth 600 + px 3).
+                width: '100%', maxWidth: 600, px: 3, color: '#fff',
+                textShadow: '0 2px 12px rgba(0,0,0,0.6)',
+                // Parallax: sube y se desvanece al scrollear.
+                transform: `translateY(${-scrollY * 0.35}px)`,
+                opacity: Math.max(0, 1 - scrollY / 240),
+              }}
+            >
+              {exercise.name}
+            </Typography>
+          </Box>
         )}
       </Box>
 
       {/* Sheet que sube sobre el video al hacer scroll */}
       <Box
         sx={{
-          position: 'relative', zIndex: 1, mt: '54vh', minHeight: 'calc(100vh - 54vh)',
+          position: 'relative', zIndex: 1, mt: '54vh', minHeight: 'calc(100dvh - 54vh)',
           bgcolor: 'background.default',
           borderTopLeftRadius: 24, borderTopRightRadius: 24,
           boxShadow: '0 -8px 24px rgba(0,0,0,0.6)',
