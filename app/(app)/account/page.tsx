@@ -335,8 +335,10 @@ export default function AccountPage() {
           <Box
             onClick={() => setCoverPickerOpen(true)}
             sx={{
-              position: 'relative', width: '100%', aspectRatio: '16 / 6', borderRadius: 4, overflow: 'hidden',
-              cursor: 'pointer', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
+              position: 'relative', width: '100%', aspectRatio: '16 / 6', borderRadius: '8px', overflow: 'hidden',
+              cursor: 'pointer',
+              // El marco/fondo solo cuando no hay portada (si no, se ve "algo detrás").
+              ...(cover ? {} : { bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }),
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
           >

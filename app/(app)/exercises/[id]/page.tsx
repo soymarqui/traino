@@ -251,13 +251,15 @@ export default function ExerciseDetailPage() {
         {videoId ? (
           <Box
             component="iframe"
-            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1&playsinline=1&rel=0`}
+            src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1`}
             title={exercise?.name}
-            allow="autoplay; encrypted-media"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
             sx={{
-              border: 0, pointerEvents: 'none',
+              border: 0,
               // Cubrir el header (video horizontal 16:9): el iframe se agranda lo
-              // necesario para tapar el área y se recorta centrado.
+              // necesario para tapar el área y se recorta centrado. Es interactivo
+              // (controles de YouTube), así se puede reproducir y pausar.
               width: 'max(100vw, calc(60vh * 16 / 9))',
               height: 'max(60vh, calc(100vw * 9 / 16))',
             }}
@@ -267,17 +269,26 @@ export default function ExerciseDetailPage() {
             {muscleEmoji(exercise?.muscle?.slug) || '🏋️'}
           </Typography>
         )}
-        {/* Gradiente para legibilidad del nombre */}
+        {/* Gradiente para legibilidad del nombre (no bloquea el video) */}
         <Box
           sx={{
-            position: 'absolute', left: 0, right: 0, bottom: 0, height: '50%',
+            position: 'absolute', left: 0, right: 0, bottom: 0, height: '45%',
             background: 'linear-gradient(to top, rgba(10,10,10,0.95), rgba(10,10,10,0))',
+            pointerEvents: 'none',
           }}
         />
         {!loading && exercise && (
           <Typography
             variant="h4"
-            sx={{ ...displayTitleSx, position: 'absolute', left: 24, right: 24, bottom: 24, color: '#fff' }}
+            sx={{
+              ...displayTitleSx,
+              position: 'absolute', left: 24, right: 24, bottom: 24, color: '#fff',
+              pointerEvents: 'none',
+              textShadow: '0 2px 12px rgba(0,0,0,0.6)',
+              // Parallax: sube y se desvanece al scrollear.
+              transform: `translateY(${-scrollY * 0.35}px)`,
+              opacity: Math.max(0, 1 - scrollY / 240),
+            }}
           >
             {exercise.name}
           </Typography>
