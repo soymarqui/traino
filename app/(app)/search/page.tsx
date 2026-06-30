@@ -29,6 +29,9 @@ type UserResult = { id: string; handle: string | null; display_name: string | nu
 type GroupResult = { id: string; name: string; visibility: string; member: boolean }
 type ChallengeResult = { id: string; name: string; objective: string | null; group_id: string | null }
 
+// Saca acentos y pasa a minúsculas, para matchear contra las columnas search_norm.
+const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
 export default function SearchPage() {
   const [q, setQ] = useState('')
   const [searched, setSearched] = useState(false)
@@ -113,28 +116,26 @@ export default function SearchPage() {
     setLoading(true)
     setSearched(true)
     setFilter('todo')
-    const like = `%${term}%`
-    // Búsqueda menos literal: divido en palabras y matcheo cada una (nombre/apellido
-    // en cualquier orden) + un patrón con comodín entre palabras ("juan perez" → %juan%perez%").
-    const tokens = term.split(/\s+/).filter(Boolean)
+    // Búsqueda menos literal e insensible a acentos: normalizo el término (saco tildes,
+    // minúsculas) y matcheo contra search_norm (columna generada igual de normalizada).
+    // Divido en palabras y matcheo cada una (nombre/apellido en cualquier orden) +
+    // un patrón con comodín entre palabras ("juan perez" → %juan%perez%").
+    const nterm = norm(term)
+    const like = `%${nterm}%`
+    const tokens = nterm.split(/\s+/).filter(Boolean)
     const wild = `%${tokens.join('%')}%`
-    const lower = term.toLowerCase()
 
     // 1) Usuarios públicos.
-    const userOr = [`handle.ilike.${like}`, `display_name.ilike.${like}`, `display_name.ilike.${wild}`]
-    tokens.forEach((t) => {
-      userOr.push(`display_name.ilike.%${t}%`)
-      userOr.push(`handle.ilike.%${t}%`)
-    })
+    const searchOr = [`search_norm.ilike.${like}`, `search_norm.ilike.${wild}`, ...tokens.map((t) => `search_norm.ilike.%${t}%`)]
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, handle, display_name, avatar_url, is_certified')
-      .or(userOr.join(','))
+      .or(searchOr.join(','))
       .eq('is_public', true)
       .limit(20)
     const profs = ((profiles as UserResult[]) || []).slice().sort((a, b) => {
-      const am = (a.display_name || '').toLowerCase().includes(lower) || (a.handle || '').toLowerCase().includes(lower)
-      const bm = (b.display_name || '').toLowerCase().includes(lower) || (b.handle || '').toLowerCase().includes(lower)
+      const am = norm(`${a.display_name || ''} ${a.handle || ''}`).includes(nterm)
+      const bm = norm(`${b.display_name || ''} ${b.handle || ''}`).includes(nterm)
       if (am !== bm) return am ? -1 : 1
       return Number(b.is_certified) - Number(a.is_certified)
     })
@@ -148,7 +149,7 @@ export default function SearchPage() {
 
     // 2) Rutinas públicas (por nombre o de los usuarios encontrados).
     const ownerIds = profs.map((p) => p.id)
-    const routineFilters = [`name.ilike.${like}`, `name.ilike.${wild}`]
+    const routineFilters = [`search_norm.ilike.${like}`, `search_norm.ilike.${wild}`]
     if (ownerIds.length) routineFilters.push(`owner_id.in.(${ownerIds.join(',')})`)
     const { data: routines } = await supabase
       .from('routines')
@@ -183,7 +184,7 @@ export default function SearchPage() {
       .from('groups')
       .select('id, name, visibility')
       .eq('visibility', 'public')
-      .or(`name.ilike.${like},name.ilike.${wild}`)
+      .or(`search_norm.ilike.${like},search_norm.ilike.${wild}`)
       .limit(20)
     setGroupResults(
       ((pubGroups as { id: string; name: string; visibility: string }[]) || []).map((g) => ({
@@ -197,7 +198,7 @@ export default function SearchPage() {
       .from('challenges')
       .select('id, name, objective, group_id')
       .eq('status', 'active')
-      .or(`name.ilike.${like},name.ilike.${wild}`)
+      .or(`search_norm.ilike.${like},search_norm.ilike.${wild}`)
       .limit(20)
     setChallengeResults((chs as ChallengeResult[]) || [])
 
