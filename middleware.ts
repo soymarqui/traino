@@ -35,6 +35,7 @@ export async function middleware(request: NextRequest) {
   const isPublicPage =
     request.nextUrl.pathname === '/' ||
     request.nextUrl.pathname.startsWith('/auth/') ||
+    request.nextUrl.pathname.startsWith('/api/') ||
     request.nextUrl.pathname.startsWith('/reset-password')
 
   if (!user && !isAuthPage && !isPublicPage) {
