@@ -33,8 +33,6 @@ import MenuBookIcon from '@mui/icons-material/MenuBook'
 import HistoryIcon from '@mui/icons-material/History'
 import InsightsIcon from '@mui/icons-material/Insights'
 import TuneIcon from '@mui/icons-material/Tune'
-import ManageAccountsIcon from '@mui/icons-material/ManageAccounts'
-import PersonIcon from '@mui/icons-material/Person'
 import LogoutIcon from '@mui/icons-material/Logout'
 import GroupIcon from '@mui/icons-material/Group'
 import { createClient } from '@/lib/supabase/client'
@@ -61,7 +59,6 @@ const DRAWER_ITEMS = [
   { label: 'Estadísticas', value: '/stats', icon: <InsightsIcon /> },
   { label: 'Historial', value: '/history', icon: <HistoryIcon /> },
   { label: 'Ajustes', value: '/settings', icon: <TuneIcon /> },
-  { label: 'Configuración de cuenta', value: '/account', icon: <ManageAccountsIcon /> },
 ]
 
 export default function AppLayout({
@@ -162,11 +159,6 @@ export default function AppLayout({
     router.push(value)
   }
 
-  const viewProfile = () => {
-    setDrawerOpen(false)
-    router.push(handle ? `/u/${handle}` : '/account')
-  }
-
   const signOut = async () => {
     setDrawerOpen(false)
     await supabase.auth.signOut()
@@ -248,21 +240,13 @@ export default function AppLayout({
           <Typography sx={{ ...wordmarkSx, fontSize: '1.15rem', px: 2 }}>
             TRAINO
           </Typography>
-          {user?.email && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ px: 2, mb: 1, wordBreak: 'break-all' }}
-            >
-              {user.email}
+          {handle && (
+            <Typography variant="body2" color="text.secondary" sx={{ px: 2, mb: 1 }}>
+              @{handle}
             </Typography>
           )}
           <Divider />
           <List>
-            <ListItemButton onClick={viewProfile}>
-              <ListItemIcon sx={{ color: 'text.secondary' }}><PersonIcon /></ListItemIcon>
-              <ListItemText primary="Ver perfil" />
-            </ListItemButton>
             {DRAWER_ITEMS.map((item) => (
               <ListItemButton
                 key={item.value}
