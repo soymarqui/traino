@@ -25,6 +25,7 @@ import { muscleLabel, muscleEmoji } from '@/lib/muscles'
 import { unitShort } from '@/lib/units'
 import { displayTitleSx } from '@/lib/theme'
 import Markdown from '@/components/Markdown'
+import ExerciseVideo from '@/components/ExerciseVideo'
 import { Exercise } from '@/types/database'
 import { useRouter, useParams } from 'next/navigation'
 import AddToRoutineDialog from './AddToRoutineDialog'
@@ -238,7 +239,7 @@ export default function ExerciseDetailPage() {
         </IconButton>
       )}
 
-      {/* Header fijo: video de fondo (4:5), se desvanece con el scroll */}
+      {/* Header fijo: video de fondo, se desvanece con el scroll */}
       <Box
         sx={{
           position: 'fixed', top: 0, left: 0, right: 0, height: '60vh', zIndex: 0,
@@ -246,22 +247,18 @@ export default function ExerciseDetailPage() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           opacity: videoOpacity,
           transition: 'opacity 0.1s linear',
+          // El iframe que genera la YT API se agranda para cubrir el header
+          // (video horizontal 16:9) y se recorta centrado. No interactivo.
+          '& iframe': {
+            border: 0,
+            pointerEvents: 'none',
+            width: 'max(100vw, calc(60vh * 16 / 9))',
+            height: 'max(60vh, calc(100vw * 9 / 16))',
+          },
         }}
       >
         {videoId ? (
-          <Box
-            component="iframe"
-            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1&playsinline=1&rel=0`}
-            title={exercise?.name}
-            allow="autoplay; encrypted-media"
-            sx={{
-              border: 0, pointerEvents: 'none',
-              // Fondo en loop, silenciado: el iframe se agranda para cubrir el
-              // header (video horizontal 16:9) y se recorta centrado.
-              width: 'max(100vw, calc(60vh * 16 / 9))',
-              height: 'max(60vh, calc(100vw * 9 / 16))',
-            }}
-          />
+          <ExerciseVideo videoId={videoId} title={exercise?.name} />
         ) : (
           <Typography sx={{ fontSize: 72, opacity: 0.6 }}>
             {muscleEmoji(exercise?.muscle?.slug) || '🏋️'}

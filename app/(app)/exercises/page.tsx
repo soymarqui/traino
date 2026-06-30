@@ -239,7 +239,7 @@ export default function ExercisesPage() {
         {filtered.map((exercise) => (
           <SwipeableRow
             key={exercise.id}
-            onPress={() => router.push(`/exercises/${exercise.id}`)}
+            onPress={() => router.push(`/exercises/${exercise.id}`, { transitionTypes: ['nav-forward'] } as never)}
             trailing={[
               {
                 label: 'A activa',
