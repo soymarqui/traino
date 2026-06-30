@@ -80,12 +80,15 @@ export default function AppLayout({
       // Handle propio (para "Ver Perfil").
       const { data: myProfile } = await supabase.from('profiles').select('handle').eq('id', user.id).maybeSingle()
       setHandle((myProfile as { handle: string | null } | null)?.handle ?? null)
-      // Entrenamiento en curso (sin finalizar) para el botón flotante.
+      // Entrenamiento en curso (sin finalizar) y reciente, para el botón flotante.
+      // Se acota a las últimas 12 h para no contar sesiones viejas abandonadas.
+      const since = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
       const { data: active } = await supabase
         .from('workouts')
         .select('id')
         .eq('user_id', user.id)
         .is('finished_at', null)
+        .gte('started_at', since)
         .order('started_at', { ascending: false })
         .limit(1)
         .maybeSingle()
