@@ -18,6 +18,15 @@ export function accentGradient(mode: ColorMode) {
   return mode === 'light' ? blueGradient : limeGradient
 }
 
+// Animación de entrada tipo slide para el contenido de pestañas (usar con key={tab}).
+export const slideInSx = {
+  animation: 'trainoSlideIn 0.28s ease',
+  '@keyframes trainoSlideIn': {
+    from: { opacity: 0, transform: 'translateX(18px)' },
+    to: { opacity: 1, transform: 'translateX(0)' },
+  },
+}
+
 // Estilo para títulos destacados (ejercicios / rutinas): fuente display Archivo,
 // peso black y ancho expandido.
 export const displayTitleSx = {

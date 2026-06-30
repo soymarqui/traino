@@ -30,6 +30,7 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import { createClient } from '@/lib/supabase/client'
 import CheckinCard from '@/components/CheckinCard'
+import { slideInSx } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 
 type GroupRow = { id: string; name: string; role: string }
@@ -475,6 +476,7 @@ export default function FriendsPage() {
             <Tab value="grupos" label="Grupos" />
           </Tabs>
 
+          <Box key={tab} sx={slideInSx}>
           {/* TAB GRUPOS */}
           {tab === 'grupos' && (
             <Box sx={{ px: 3, pt: 2, pb: 2 }}>
@@ -586,6 +588,7 @@ export default function FriendsPage() {
           )}
         </Box>
       )}
+          </Box>
         </>
       )}
 

@@ -25,6 +25,7 @@ import { createClient } from '@/lib/supabase/client'
 import { duplicateRoutine } from '@/lib/routines'
 import RoutineCard from '@/components/RoutineCard'
 import UserAvatar from '@/components/UserAvatar'
+import { slideInSx } from '@/lib/theme'
 import { useRouter, useParams } from 'next/navigation'
 
 const IDENTITY_LABELS: Record<string, string> = { gymbro: 'GymBro', gymsis: 'GymSis', gympal: 'GymPal' }
@@ -416,7 +417,7 @@ export default function UserProfilePage() {
             <Tab value="logros" label="Logros" />
           </Tabs>
 
-          <Box sx={{ px: 3, mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <Box key={tab} sx={{ px: 3, mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5, ...slideInSx }}>
             {/* RUTINAS */}
             {tab === 'rutinas' && (
               routines.length === 0 ? (
