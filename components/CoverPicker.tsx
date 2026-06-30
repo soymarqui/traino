@@ -10,17 +10,22 @@ import Typography from '@mui/material/Typography'
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import CloudUploadIcon from '@mui/icons-material/CloudUpload'
 
-// Mini biblioteca de portadas predefinidas (genéricas, modernas, de entrenamiento).
-// Usamos imágenes de Unsplash (Source) con parámetros de tamaño/recorte.
+// Mini biblioteca de portadas: fondos con gradiente generados como SVG (data URI).
+// Cargan siempre (sin depender de un CDN externo) y se usan como cualquier imagen.
+function gradientCover(c1: string, c2: string): string {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='675'><defs><linearGradient id='g' gradientTransform='rotate(45)'><stop offset='0%' stop-color='${c1}'/><stop offset='100%' stop-color='${c2}'/></linearGradient></defs><rect width='100%' height='100%' fill='url(#g)'/></svg>`
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
 export const COVER_LIBRARY: { id: string; url: string }[] = [
-  { id: 'gym1', url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=70' },
-  { id: 'gym2', url: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?auto=format&fit=crop&w=1200&q=70' },
-  { id: 'gym3', url: 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1200&q=70' },
-  { id: 'gym4', url: 'https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=1200&q=70' },
-  { id: 'gym5', url: 'https://images.unsplash.com/photo-1574680096145-d05b474e2155?auto=format&fit=crop&w=1200&q=70' },
-  { id: 'gym6', url: 'https://images.unsplash.com/photo-1599058917212-d750089bc07e?auto=format&fit=crop&w=1200&q=70' },
-  { id: 'gym7', url: 'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?auto=format&fit=crop&w=1200&q=70' },
-  { id: 'gym8', url: 'https://images.unsplash.com/photo-1538805060514-97d9cc17730c?auto=format&fit=crop&w=1200&q=70' },
+  { id: 'lime', url: gradientCover('#C6F135', '#0A0A0A') },
+  { id: 'blue', url: gradientCover('#4D8BFF', '#15235E') },
+  { id: 'violet', url: gradientCover('#8B5CF6', '#1E1145') },
+  { id: 'sunset', url: gradientCover('#FF8A00', '#E0245E') },
+  { id: 'teal', url: gradientCover('#22D3EE', '#0A5C3E') },
+  { id: 'pink', url: gradientCover('#FF5FA2', '#5B1E6B') },
+  { id: 'amber', url: gradientCover('#F5C518', '#1A1A1A') },
+  { id: 'slate', url: gradientCover('#94A3B8', '#1E293B') },
 ]
 
 export default function CoverPicker({

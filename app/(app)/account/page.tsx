@@ -24,6 +24,7 @@ import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate'
 import CloseIcon from '@mui/icons-material/Close'
 import { createClient } from '@/lib/supabase/client'
 import { isAdmin } from '@/lib/admin'
+import CoverPicker from '@/components/CoverPicker'
 import { useRouter } from 'next/navigation'
 
 const GOALS = [
@@ -65,7 +66,7 @@ export default function AccountPage() {
   const [detailsVis, setDetailsVis] = useState<'public' | 'friends' | 'hidden'>('public')
   const [cover, setCover] = useState('')
   const [uploadingCover, setUploadingCover] = useState(false)
-  const coverRef = useRef<HTMLInputElement>(null)
+  const [coverPickerOpen, setCoverPickerOpen] = useState(false)
   const [goals, setGoals] = useState<string[]>([])
   const [isCertified, setIsCertified] = useState(false)
   const [certStatus, setCertStatus] = useState<'none' | 'pending' | 'approved' | 'rejected'>('none')
@@ -162,21 +163,29 @@ export default function AccountPage() {
     setUploading(false)
   }
 
-  const handleCover = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !userId) return
+  const setProfileCover = async (url: string) => {
+    setCover(url)
+    await supabase.from('profiles').upsert({ id: userId, cover_url: url })
+    setSaved(true)
+  }
+
+  const pickCover = async (url: string) => {
+    setCoverPickerOpen(false)
+    await setProfileCover(url)
+  }
+
+  const uploadCover = async (file: File) => {
+    if (!userId) return
     setUploadingCover(true)
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
     const path = `${userId}/cover.${ext}`
     const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
     if (!error) {
       const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-      const url = `${data.publicUrl}?t=${Date.now()}`
-      await supabase.from('profiles').upsert({ id: userId, cover_url: url })
-      setCover(url)
-      setSaved(true)
+      await setProfileCover(`${data.publicUrl}?t=${Date.now()}`)
     }
     setUploadingCover(false)
+    setCoverPickerOpen(false)
   }
 
   const removeCover = async () => {
@@ -320,12 +329,11 @@ export default function AccountPage() {
 
       <Box sx={{ px: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
         {/* Encabezado: portada + foto de perfil */}
-        <input ref={coverRef} type="file" accept="image/*" hidden onChange={handleCover} />
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={handlePhoto} />
         <Box>
           {/* Portada */}
           <Box
-            onClick={() => coverRef.current?.click()}
+            onClick={() => setCoverPickerOpen(true)}
             sx={{
               position: 'relative', width: '100%', aspectRatio: '16 / 6', borderRadius: 4, overflow: 'hidden',
               cursor: 'pointer', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
@@ -603,6 +611,14 @@ export default function AccountPage() {
           Borrar cuenta
         </Button>
       </Box>
+
+      <CoverPicker
+        open={coverPickerOpen}
+        onClose={() => setCoverPickerOpen(false)}
+        onPick={pickCover}
+        onUpload={uploadCover}
+        uploading={uploadingCover}
+      />
 
       {/* Solicitar certificación */}
       <Dialog open={certOpen} onClose={() => setCertOpen(false)} fullWidth maxWidth="xs">

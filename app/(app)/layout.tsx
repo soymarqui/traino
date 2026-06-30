@@ -17,6 +17,7 @@ import Paper from '@mui/material/Paper'
 import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
 import Badge from '@mui/material/Badge'
+import Fab from '@mui/material/Fab'
 import MenuIcon from '@mui/icons-material/Menu'
 import SearchIcon from '@mui/icons-material/Search'
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone'
@@ -68,6 +69,7 @@ export default function AppLayout({
   const [user, setUser] = useState<User | null>(null)
   const [handle, setHandle] = useState<string | null>(null)
   const [unread, setUnread] = useState(0)
+  const [activeWorkoutId, setActiveWorkoutId] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -78,6 +80,16 @@ export default function AppLayout({
       // Handle propio (para "Ver Perfil").
       const { data: myProfile } = await supabase.from('profiles').select('handle').eq('id', user.id).maybeSingle()
       setHandle((myProfile as { handle: string | null } | null)?.handle ?? null)
+      // Entrenamiento en curso (sin finalizar) para el botón flotante.
+      const { data: active } = await supabase
+        .from('workouts')
+        .select('id')
+        .eq('user_id', user.id)
+        .is('finished_at', null)
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      setActiveWorkoutId((active as { id: string } | null)?.id ?? null)
       // Notificaciones sin leer (para el indicador de la campana).
       try {
         const notifs = await fetchNotifications(supabase, user.id)
@@ -217,6 +229,26 @@ export default function AppLayout({
       <RestTimerProvider>
         <Box sx={{ maxWidth: 600, mx: 'auto', width: '100%' }}>{children}</Box>
       </RestTimerProvider>
+
+      {/* Botón flotante de "entrenamiento activo" (volver a la sesión en curso) */}
+      {activeWorkoutId && pathname !== `/train/${activeWorkoutId}` && (
+        <Fab
+          color="primary"
+          variant="extended"
+          onClick={() => router.push(`/train/${activeWorkoutId}`)}
+          sx={{
+            position: 'fixed',
+            bottom: 'calc(96px + env(safe-area-inset-bottom))',
+            left: 'max(16px, calc(50% - 284px))',
+            zIndex: 12,
+            fontWeight: 700,
+            textTransform: 'none',
+          }}
+        >
+          <FitnessCenterIcon sx={{ mr: 1 }} />
+          Entrenando
+        </Fab>
+      )}
 
       {/* Capa de blur con gradiente detrás del nav: difumina el contenido que
           pasa por atrás y se desvanece hacia arriba. */}
