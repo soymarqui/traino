@@ -3,8 +3,8 @@
 import { useEffect, useRef } from 'react'
 import Box from '@mui/material/Box'
 
-const ITEM_H = 40
-const VISIBLE = 5
+const ITEM_H = 34
+const VISIBLE = 3
 
 // Picker tipo drum-roll (estilo iOS) para enteros.
 export default function WheelPicker({
@@ -69,7 +69,7 @@ export default function WheelPicker({
               alignItems: 'center',
               justifyContent: 'center',
               scrollSnapAlign: 'center',
-              fontSize: n === value ? '1.6rem' : '1.1rem',
+              fontSize: n === value ? '1.25rem' : '0.95rem',
               fontWeight: n === value ? 800 : 400,
               color: n === value ? 'primary.main' : 'text.secondary',
               transition: 'font-size 0.1s',
