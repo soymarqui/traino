@@ -59,6 +59,10 @@ export default function AccountPage() {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [pwSaving, setPwSaving] = useState(false)
+  const [pwError, setPwError] = useState('')
   const [isPublic, setIsPublic] = useState(true)
   const [allowAdd, setAllowAdd] = useState(true)
   const [instagram, setInstagram] = useState('')
@@ -207,6 +211,28 @@ export default function AccountPage() {
     setForm((prev) => ({ ...prev, [field]: value }))
 
   const num = (v: string) => (v.trim() === '' ? null : Number(v))
+
+  const changePassword = async () => {
+    setPwError('')
+    if (newPassword.length < 6) {
+      setPwError('La contraseña debe tener al menos 6 caracteres.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPwError('Las contraseñas no coinciden.')
+      return
+    }
+    setPwSaving(true)
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    setPwSaving(false)
+    if (error) {
+      setPwError('No se pudo cambiar la contraseña. Volvé a intentar.')
+      return
+    }
+    setNewPassword('')
+    setConfirmPassword('')
+    setSaved(true)
+  }
 
   const savePrivacy = async (patch: { is_public?: boolean; allow_community_add?: boolean }) => {
     if (patch.is_public !== undefined) setIsPublic(patch.is_public)
@@ -605,6 +631,23 @@ export default function AccountPage() {
                 </Typography>
               </Box>
               <Chip label="Próximamente" size="small" />
+            </CardContent>
+          </Card>
+        </Box>
+
+        {/* 5) Contraseña */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+            Contraseña
+          </Typography>
+          <Card>
+            <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {pwError && <Alert severity="error">{pwError}</Alert>}
+              <TextField label="Nueva contraseña" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} fullWidth autoComplete="new-password" />
+              <TextField label="Repetir contraseña" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} fullWidth autoComplete="new-password" />
+              <Button variant="outlined" onClick={changePassword} disabled={pwSaving || !newPassword}>
+                {pwSaving ? 'Guardando...' : 'Cambiar contraseña'}
+              </Button>
             </CardContent>
           </Card>
         </Box>
