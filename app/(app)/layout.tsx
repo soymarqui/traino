@@ -44,6 +44,7 @@ import type { User } from '@supabase/supabase-js'
 import { RestTimerProvider } from '@/components/RestTimer'
 import { alpha } from '@mui/material/styles'
 import { fetchNotifications, countUnread } from '@/lib/notifications'
+import { wordmarkSx } from '@/lib/theme'
 
 // Acciones primarias, siempre visibles abajo.
 const BOTTOM_TABS = [
@@ -211,16 +212,7 @@ export default function AppLayout({
           </IconButton>
           <Typography
             onClick={() => router.push('/dashboard')}
-            sx={{
-              fontFamily: 'var(--font-display), var(--font-instrument), sans-serif',
-              fontWeight: 900,
-              fontStretch: '125%',
-              letterSpacing: '0.04em',
-              fontSize: '1.15rem',
-              color: 'primary.main',
-              flex: 1,
-              cursor: 'pointer',
-            }}
+            sx={{ ...wordmarkSx, fontSize: '1.15rem', flex: 1, cursor: 'pointer' }}
           >
             TRAINO
           </Typography>
@@ -253,7 +245,7 @@ export default function AppLayout({
       {/* Menú lateral */}
       <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
         <Box sx={{ width: 260, pt: 2 }} role="presentation">
-          <Typography sx={{ fontFamily: 'var(--font-display), sans-serif', fontWeight: 900, fontStretch: '125%', letterSpacing: '0.04em', fontSize: '1.15rem', color: 'primary.main', px: 2 }}>
+          <Typography sx={{ ...wordmarkSx, fontSize: '1.15rem', px: 2 }}>
             TRAINO
           </Typography>
           {user?.email && (

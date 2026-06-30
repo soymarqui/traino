@@ -4,6 +4,7 @@ import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import Button from '@mui/material/Button'
 import Link from 'next/link'
+import { wordmarkSx } from '@/lib/theme'
 
 export default function Home() {
   return (
@@ -18,11 +19,8 @@ export default function Home() {
         px: 3,
       }}
     >
-      <Typography
-        variant="h2"
-        sx={{ color: 'primary.main', fontWeight: 700, letterSpacing: '-0.02em' }}
-      >
-        Traino
+      <Typography variant="h2" sx={wordmarkSx}>
+        TRAINO
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center' }}>
         Registrá tu entrenamiento de fuerza.

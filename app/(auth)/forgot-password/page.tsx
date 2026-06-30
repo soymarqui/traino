@@ -7,6 +7,7 @@ import TextField from '@mui/material/TextField'
 import Button from '@mui/material/Button'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { wordmarkSx } from '@/lib/theme'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -46,7 +47,7 @@ export default function ForgotPasswordPage() {
       }}
     >
       <Box sx={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
+        <Typography variant="h4" sx={wordmarkSx}>
           TRAINO
         </Typography>
 

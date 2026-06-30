@@ -36,6 +36,16 @@ export const displayTitleSx = {
   letterSpacing: '0.005em',
 }
 
+// Logotipo "TRAINO": misma identidad en toda la app (header, login, landing...).
+// Siempre en mayúsculas, fuente display black + expandida.
+export const wordmarkSx = {
+  fontFamily: 'var(--font-display), var(--font-instrument), sans-serif',
+  fontWeight: 900,
+  fontStretch: '125%',
+  letterSpacing: '0.04em',
+  color: 'primary.main',
+}
+
 // Borde con gradiente para elementos seleccionados/destacados. Se adapta al tema.
 export const gradientBorderSx = (radius = 16) => (t: { palette: { background: { paper: string }; primary: { main: string; dark: string } } }) => ({
   borderRadius: `${radius}px`,

@@ -9,6 +9,7 @@ import Divider from '@mui/material/Divider'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { wordmarkSx } from '@/lib/theme'
 import GoogleButton from '@/components/GoogleButton'
 
 export default function RegisterPage() {
@@ -90,7 +91,7 @@ export default function RegisterPage() {
         }}
       >
         <Box sx={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 3 }}>
-          <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
+          <Typography variant="h4" sx={wordmarkSx}>
             TRAINO
           </Typography>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
@@ -119,7 +120,7 @@ export default function RegisterPage() {
       }}
     >
       <Box sx={{ width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
+        <Typography variant="h4" sx={wordmarkSx}>
           TRAINO
         </Typography>
 
