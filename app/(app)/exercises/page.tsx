@@ -9,7 +9,10 @@ import CardContent from '@mui/material/CardContent'
 import Chip from '@mui/material/Chip'
 import IconButton from '@mui/material/IconButton'
 import Snackbar from '@mui/material/Snackbar'
+import TextField from '@mui/material/TextField'
+import InputAdornment from '@mui/material/InputAdornment'
 import AddIcon from '@mui/icons-material/Add'
+import SearchIcon from '@mui/icons-material/Search'
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
@@ -21,10 +24,14 @@ import { useRouter } from 'next/navigation'
 import SwipeableRow from '@/components/SwipeableRow'
 import AddToRoutineDialog from './[id]/AddToRoutineDialog'
 
+// Saca acentos y pasa a minúsculas para buscar sin importar tildes.
+const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
 export default function ExercisesPage() {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [muscles, setMuscles] = useState<Muscle[]>([])
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [admin, setAdmin] = useState(false)
   const [activeRoutineId, setActiveRoutineId] = useState<string | null>(null)
@@ -110,9 +117,10 @@ export default function ExercisesPage() {
     }
   }
 
-  const filtered = selectedMuscle
-    ? exercises.filter((e) => e.muscle_id === selectedMuscle)
-    : exercises
+  const nq = norm(query.trim())
+  const filtered = exercises.filter(
+    (e) => (!selectedMuscle || e.muscle_id === selectedMuscle) && (!nq || norm(e.name).includes(nq)),
+  )
 
   return (
     <Box sx={{ minHeight: '100vh', pb: 10 }}>
@@ -150,6 +158,26 @@ export default function ExercisesPage() {
             {admin ? 'Agregar' : 'Solicitar'}
           </Button>
         </Box>
+      </Box>
+
+      {/* Buscador rápido por nombre */}
+      <Box sx={{ px: 3, pb: 1.5 }}>
+        <TextField
+          fullWidth
+          size="small"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Buscar ejercicio..."
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
       </Box>
 
       {/* Filtro por músculo */}
@@ -198,11 +226,13 @@ export default function ExercisesPage() {
           >
             <FitnessCenterIcon sx={{ fontSize: 48, color: 'text.secondary' }} />
             <Typography color="text.secondary">
-              No hay ejercicios todavía.
+              {nq || selectedMuscle ? 'No encontramos ejercicios con ese filtro.' : 'No hay ejercicios todavía.'}
             </Typography>
-            <Button variant="contained" href="/exercises/new">
-              Solicitar ejercicio
-            </Button>
+            {!nq && !selectedMuscle && (
+              <Button variant="contained" href="/exercises/new">
+                Solicitar ejercicio
+              </Button>
+            )}
           </Box>
         )}
 

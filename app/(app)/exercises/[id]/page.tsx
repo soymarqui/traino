@@ -256,9 +256,10 @@ export default function ExerciseDetailPage() {
             allow="autoplay; encrypted-media"
             sx={{
               border: 0, pointerEvents: 'none',
-              // Cubrir manteniendo proporción 4:5 (1080x1350).
-              width: 'max(100%, 80vh)',
-              height: 'max(100%, 125vw)',
+              // Cubrir el header (video horizontal 16:9): el iframe se agranda lo
+              // necesario para tapar el área y se recorta centrado.
+              width: 'max(100vw, calc(60vh * 16 / 9))',
+              height: 'max(60vh, calc(100vw * 9 / 16))',
             }}
           />
         ) : (

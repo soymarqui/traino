@@ -24,7 +24,7 @@ import PublicIcon from '@mui/icons-material/Public'
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt'
 import { createClient } from '@/lib/supabase/client'
 import { duplicateRoutine } from '@/lib/routines'
-import { accentGradient, displayTitleSx } from '@/lib/theme'
+import { accentGradient } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 import SwipeableRow from '@/components/SwipeableRow'
 
@@ -289,7 +289,7 @@ export default function RoutinesPage() {
   return (
     <Box sx={{ minHeight: '100vh', pb: 12 }}>
       <Box sx={{ px: 3, pt: 4, pb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h5" sx={displayTitleSx}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
           Mis Rutinas
         </Typography>
         <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={() => setCreateOpen(true)}>
