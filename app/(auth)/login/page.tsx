@@ -13,7 +13,7 @@ import GoogleButton from '@/components/GoogleButton'
 import { wordmarkSx } from '@/lib/theme'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -24,18 +24,20 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier, password }),
     })
 
-    if (error) {
-      setError('Email o contraseña incorrectos.')
+    if (!res.ok) {
+      setError('Email/usuario o contraseña incorrectos.')
       setLoading(false)
       return
     }
 
     router.push('/dashboard')
+    router.refresh()
   }
 
   const handleGoogle = async () => {
@@ -72,11 +74,14 @@ export default function LoginPage() {
         )}
 
         <TextField
-          label="Email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          label="Email o usuario"
+          type="text"
+          autoCapitalize="none"
+          autoCorrect="off"
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
           fullWidth
+          onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
         />
 
         <TextField
