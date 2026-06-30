@@ -171,9 +171,10 @@ export default function AppLayout({
       .filter((v) => pathname === v || pathname.startsWith(v + '/'))
       .sort((a, b) => b.length - a.length)[0] ?? false
 
-  // En sub-páginas (todo lo que no sea una pestaña principal) mostramos una
-  // flecha de "atrás", para quienes no usan el gesto de deslizar de iOS.
-  const isTopLevelTab = BOTTOM_TABS.some((t) => t.value === pathname)
+  // Flecha de "atrás" solo cuando estás viendo un ejercicio (/exercises/[id]),
+  // para quienes no usan el gesto de deslizar de iOS.
+  const isExerciseDetail =
+    /^\/exercises\/[^/]+$/.test(pathname) && pathname !== '/exercises/new' && pathname !== '/exercises/requests'
 
   // Navegación entre tabs con dirección: desliza hacia un lado u otro según el
   // orden de los tabs, para que se sienta como una app nativa.
@@ -291,7 +292,7 @@ export default function AppLayout({
       </Dialog>
 
       {/* Flecha de "atrás" flotante, arriba a la izquierda, debajo de la barra. */}
-      {!isTopLevelTab && (
+      {isExerciseDetail && (
         <IconButton
           onClick={() => router.back()}
           aria-label="Atrás"

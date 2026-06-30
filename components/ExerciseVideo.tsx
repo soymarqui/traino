@@ -35,6 +35,17 @@ export default function ExerciseVideo({ videoId, title }: { videoId: string; tit
 
   useEffect(() => {
     let cancelled = false
+    // iOS suele bloquear el autoplay aun en silencio: al primer toque/click en
+    // cualquier parte de la pantalla, forzamos la reproducción (gesto del usuario).
+    const kick = () => {
+      try {
+        playerRef.current?.mute()
+        playerRef.current?.playVideo()
+      } catch {
+        /* noop */
+      }
+    }
+    document.addEventListener('pointerdown', kick, { passive: true })
     loadYouTubeApi().then(() => {
       if (cancelled || !holderRef.current) return
       playerRef.current = new window.YT.Player(holderRef.current, {
@@ -69,6 +80,7 @@ export default function ExerciseVideo({ videoId, title }: { videoId: string; tit
     })
     return () => {
       cancelled = true
+      document.removeEventListener('pointerdown', kick)
       try {
         playerRef.current?.destroy()
       } catch {

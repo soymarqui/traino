@@ -11,7 +11,6 @@ import IconButton from '@mui/material/IconButton'
 import Button from '@mui/material/Button'
 import Alert from '@mui/material/Alert'
 import Snackbar from '@mui/material/Snackbar'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
@@ -212,19 +211,7 @@ export default function ExerciseDetailPage() {
 
   return (
     <Box sx={{ minHeight: '100vh' }}>
-      {/* Botones flotantes */}
-      <IconButton
-        onClick={() => router.back()}
-        aria-label="Atrás"
-        sx={{
-          position: 'fixed', top: 12, left: 12, zIndex: 3,
-          bgcolor: 'rgba(0,0,0,0.6)', color: '#fff',
-          backdropFilter: 'blur(4px)',
-          '&:hover': { bgcolor: 'rgba(0,0,0,0.8)' },
-        }}
-      >
-        <ArrowBackIcon />
-      </IconButton>
+      {/* Botones flotantes (la flecha de "atrás" la pone el layout) */}
       {!loading && exercise && (
         <IconButton
           onClick={toggleFav}

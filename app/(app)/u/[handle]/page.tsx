@@ -329,7 +329,8 @@ export default function UserProfilePage() {
             {profile.handle && (
               <Typography variant="body2" color="text.secondary">@{profile.handle}</Typography>
             )}
-            {profile.identity && (
+            {/* Si ya sos su GymBro/GymSis, el chip de relación de abajo ya comunica la identidad. */}
+            {profile.identity && friendship?.status !== 'accepted' && (
               <Chip label={IDENTITY_LABELS[profile.identity] ?? profile.identity} size="small" color="primary" />
             )}
 
