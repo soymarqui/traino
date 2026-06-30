@@ -24,6 +24,7 @@ import BottomNavigationAction from '@mui/material/BottomNavigationAction'
 import Badge from '@mui/material/Badge'
 import Fab from '@mui/material/Fab'
 import MenuIcon from '@mui/icons-material/Menu'
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import SearchIcon from '@mui/icons-material/Search'
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone'
 import HomeIcon from '@mui/icons-material/Home'
@@ -170,6 +171,10 @@ export default function AppLayout({
       .filter((v) => pathname === v || pathname.startsWith(v + '/'))
       .sort((a, b) => b.length - a.length)[0] ?? false
 
+  // En sub-páginas (todo lo que no sea una pestaña principal) mostramos una
+  // flecha de "atrás", para quienes no usan el gesto de deslizar de iOS.
+  const isTopLevelTab = BOTTOM_TABS.some((t) => t.value === pathname)
+
   // Navegación entre tabs con dirección: desliza hacia un lado u otro según el
   // orden de los tabs, para que se sienta como una app nativa.
   const goTab = (value: string) => {
@@ -284,6 +289,29 @@ export default function AppLayout({
           <Button variant="contained" onClick={keepTraining}>Sí, sigo</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Flecha de "atrás" flotante, arriba a la izquierda, debajo de la barra. */}
+      {!isTopLevelTab && (
+        <IconButton
+          onClick={() => router.back()}
+          aria-label="Atrás"
+          sx={{
+            position: 'fixed',
+            top: { xs: 64, sm: 72 },
+            left: 'max(8px, calc(50% - 292px))',
+            zIndex: 8,
+            bgcolor: (t) => alpha(t.palette.background.paper, 0.85),
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            border: '1px solid',
+            borderColor: 'divider',
+            color: 'text.primary',
+            '&:hover': { bgcolor: 'background.paper' },
+          }}
+        >
+          <ArrowBackIcon />
+        </IconButton>
+      )}
 
       {/* Botón flotante de "entrenamiento activo" (volver a la sesión en curso) */}
       {activeWorkoutId && pathname !== `/train/${activeWorkoutId}` && (
