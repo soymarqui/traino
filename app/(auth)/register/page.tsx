@@ -9,6 +9,7 @@ import Divider from '@mui/material/Divider'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import PasswordField from '@/components/PasswordField'
 import { wordmarkSx } from '@/lib/theme'
 import GoogleButton from '@/components/GoogleButton'
 
@@ -151,9 +152,8 @@ export default function RegisterPage() {
           slotProps={{ input: { startAdornment: <span style={{ color: '#888', marginRight: 2 }}>@</span> } }}
         />
 
-        <TextField
+        <PasswordField
           label="Contraseña"
-          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           fullWidth

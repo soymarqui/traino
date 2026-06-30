@@ -25,6 +25,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import { createClient } from '@/lib/supabase/client'
 import { isAdmin } from '@/lib/admin'
 import CoverPicker from '@/components/CoverPicker'
+import PasswordField from '@/components/PasswordField'
 import { useRouter } from 'next/navigation'
 
 const GOALS = [
@@ -643,8 +644,8 @@ export default function AccountPage() {
           <Card>
             <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {pwError && <Alert severity="error">{pwError}</Alert>}
-              <TextField label="Nueva contraseña" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} fullWidth autoComplete="new-password" />
-              <TextField label="Repetir contraseña" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} fullWidth autoComplete="new-password" />
+              <PasswordField label="Nueva contraseña" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} fullWidth autoComplete="new-password" />
+              <PasswordField label="Repetir contraseña" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} fullWidth autoComplete="new-password" />
               <Button variant="outlined" onClick={changePassword} disabled={pwSaving || !newPassword}>
                 {pwSaving ? 'Guardando...' : 'Cambiar contraseña'}
               </Button>

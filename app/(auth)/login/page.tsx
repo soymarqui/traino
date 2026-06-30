@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import GoogleButton from '@/components/GoogleButton'
+import PasswordField from '@/components/PasswordField'
 import { wordmarkSx } from '@/lib/theme'
 
 export default function LoginPage() {
@@ -84,9 +85,8 @@ export default function LoginPage() {
           onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
         />
 
-        <TextField
+        <PasswordField
           label="Contraseña"
-          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           fullWidth

@@ -8,6 +8,7 @@ import Button from '@mui/material/Button'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import PasswordField from '@/components/PasswordField'
 import { wordmarkSx } from '@/lib/theme'
 
 export default function ResetPasswordPage() {
@@ -87,17 +88,15 @@ export default function ResetPasswordPage() {
               </Typography>
             )}
 
-            <TextField
+            <PasswordField
               label="Nueva contraseña"
-              type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               fullWidth
             />
 
-            <TextField
+            <PasswordField
               label="Repetir contraseña"
-              type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               fullWidth
