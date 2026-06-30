@@ -251,15 +251,13 @@ export default function ExerciseDetailPage() {
         {videoId ? (
           <Box
             component="iframe"
-            src={`https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&playsinline=1`}
+            src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1&playsinline=1&rel=0`}
             title={exercise?.name}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
+            allow="autoplay; encrypted-media"
             sx={{
-              border: 0,
-              // Cubrir el header (video horizontal 16:9): el iframe se agranda lo
-              // necesario para tapar el área y se recorta centrado. Es interactivo
-              // (controles de YouTube), así se puede reproducir y pausar.
+              border: 0, pointerEvents: 'none',
+              // Fondo en loop, silenciado: el iframe se agranda para cubrir el
+              // header (video horizontal 16:9) y se recorta centrado.
               width: 'max(100vw, calc(60vh * 16 / 9))',
               height: 'max(60vh, calc(100vw * 9 / 16))',
             }}
@@ -298,7 +296,7 @@ export default function ExerciseDetailPage() {
       {/* Sheet que sube sobre el video al hacer scroll */}
       <Box
         sx={{
-          position: 'relative', zIndex: 1, mt: '54vh', minHeight: '64vh',
+          position: 'relative', zIndex: 1, mt: '54vh', minHeight: 'calc(100vh - 54vh)',
           bgcolor: 'background.default',
           borderTopLeftRadius: 24, borderTopRightRadius: 24,
           boxShadow: '0 -8px 24px rgba(0,0,0,0.6)',
